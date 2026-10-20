@@ -9,6 +9,9 @@
  *
  */
 #pragma once
+#ifndef FMT_HEADER_ONLY
+#define FMT_HEADER_ONLY 1
+#endif
 #include "fmt/base.h"
 #include "fmt/color.h"
 #include "fmt/format.h"

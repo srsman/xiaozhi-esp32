@@ -8,6 +8,10 @@
 #ifndef FMT_BASE_H_
 #define FMT_BASE_H_
 
+#ifndef FMT_HEADER_ONLY
+#define FMT_HEADER_ONLY 1
+#endif
+
 #if defined(FMT_IMPORT_STD) && !defined(FMT_MODULE)
 #  define FMT_MODULE
 #endif

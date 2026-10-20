@@ -246,6 +246,7 @@ elseif(CONFIG_BOARD_TYPE_M5STACK_STOPWATCH)
         ${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/stopwatch/hal/utils/button/*.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../components/mooncake/src/*.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../components/mooncake_log/src/*.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../components/mooncake_log/src/fmt/*.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/../components/smooth_ui_toolkit/src/*.cpp
     )
     list(APPEND SOURCES ${STOPWATCH_EXTRA_SRCS})
@@ -260,6 +261,7 @@ elseif(CONFIG_BOARD_TYPE_M5STACK_STOPWATCH)
         ${CMAKE_CURRENT_SOURCE_DIR}/../components/mooncake/src
         ${CMAKE_CURRENT_SOURCE_DIR}/../components/mooncake_log/src
     )
+    add_compile_definitions(FMT_HEADER_ONLY=1)
     set(STOPWATCH_EMBED_TXTFILES "boards/m5stack/stopwatch/hal/utils/config_ap/assets/badge_config_ap.html")
 elseif(CONFIG_BOARD_TYPE_M5STACK_CORE_P4)
     set(BOARD_DIR "m5stack/corep4")
