@@ -10,6 +10,7 @@
 #include "M5PM1.h"
 #include "config.h"
 #include "assets/lang_config.h"
+#include "watch_apps.h"
 #include <esp_log.h>
 #include <driver/i2c_master.h>
 #include <driver/spi_master.h>
@@ -361,6 +362,7 @@ private:
         pmic_.pinMode(PMIC_PIN_CHARGE_STATE, INPUT);
         pmic_.pinMode(PMIC_PIN_CHARGE_PROG, OUTPUT);
         pmic_.digitalWrite(PMIC_PIN_CHARGE_PROG, LOW); // Set charge current to 425mA
+        pmic_.setLedEnLevel(false); // Turn off distracting green power LED while AMOLED is ON
 
         ioe_.pinMode(IOE_PIN_LCD_POWER, OUTPUT);
         ioe_.setDriveMode(IOE_PIN_LCD_POWER, M5IOE1_DRIVE_PUSHPULL);
@@ -500,8 +502,11 @@ private:
     }
 
     void InitializeButtons() {
-        // Button1: wake / toggle conversation
+        // Button1: 如果在子页面（表盘/秒表），充当 Home 键返回小智主屏；在主屏时唤醒/切换对话
         button1_.OnClick([this]() {
+            if (WatchPageManager::GetInstance().HandleBack()) {
+                return;
+            }
             auto& app = Application::GetInstance();
             if (app.GetDeviceState() == kDeviceStateStarting && !WifiManager::GetInstance().IsConnected()) {
                 EnterWifiConfigMode();
@@ -560,6 +565,24 @@ public:
         InitializeDisplay();
         InitializeTouch();
         InitializeButtons();
+
+        if (display_) {
+            DisplayLockGuard lock(display_);
+            WatchPageManager::GetInstance().Init(
+                lv_screen_active(),
+                [this](uint16_t ms) {
+                    ioe_.digitalWrite(IOE_PIN_MOTOR, HIGH);
+                    vTaskDelay(pdMS_TO_TICKS(ms));
+                    ioe_.digitalWrite(IOE_PIN_MOTOR, LOW);
+                },
+                [this]() -> int {
+                    int lvl = 100;
+                    bool chg = false, dis = false;
+                    GetBatteryLevel(lvl, chg, dis);
+                    return lvl;
+                }
+            );
+        }
     }
 
     AudioCodec* GetAudioCodec() override {
