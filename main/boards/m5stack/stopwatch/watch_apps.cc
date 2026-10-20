@@ -567,8 +567,8 @@ void WatchPageManager::UpdateStopwatchUI() {
         uint32_t ms = (sw_elapsed_ms_ % 1000) / 10;
 
         char time_b[16], ms_b[8];
-        snprintf(time_b, sizeof(time_b), "%02u:%02u", min, sec);
-        snprintf(ms_b, sizeof(ms_b), ".%02u", ms);
+        snprintf(time_b, sizeof(time_b), "%02u:%02u", (unsigned int)min, (unsigned int)sec);
+        snprintf(ms_b, sizeof(ms_b), ".%02u", (unsigned int)ms);
 
         if (sw_time_label_) lv_label_set_text(sw_time_label_, time_b);
         if (sw_ms_label_)   lv_label_set_text(sw_ms_label_, ms_b);
