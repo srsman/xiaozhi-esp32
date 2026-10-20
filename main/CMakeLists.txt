@@ -249,7 +249,6 @@ elseif(CONFIG_BOARD_TYPE_M5STACK_STOPWATCH)
     list(APPEND INCLUDE_DIRS
         ${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/stopwatch
         ${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/stopwatch/hal
-        ${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/stopwatch/hal/fmt
         ${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/stopwatch/hal/utils/button
         ${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/stopwatch/assets
         ${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/stopwatch/apps
