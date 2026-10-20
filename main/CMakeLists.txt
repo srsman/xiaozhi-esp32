@@ -257,6 +257,7 @@ elseif(CONFIG_BOARD_TYPE_M5STACK_STOPWATCH)
         ${PROJECT_DIR}/components/mooncake/src
         ${PROJECT_DIR}/components/mooncake_log/src
     )
+    set(STOPWATCH_EMBED_TXTFILES "boards/m5stack/stopwatch/hal/utils/config_ap/assets/badge_config_ap.html")
 elseif(CONFIG_BOARD_TYPE_M5STACK_CORE_P4)
     set(BOARD_DIR "m5stack/corep4")
     set(BUILTIN_TEXT_FONT font_noto_sans_basic_30_4)
@@ -1152,6 +1153,7 @@ if(CONFIG_BOARD_TYPE_ESP32_P4_FUNCTION_EV_BOARD)
 endif()
 idf_component_register(SRCS ${SOURCES}
                     EMBED_FILES ${LANG_SOUNDS} ${COMMON_SOUNDS}
+                    EMBED_TXTFILES ${STOPWATCH_EMBED_TXTFILES}
                     INCLUDE_DIRS ${INCLUDE_DIRS}
                     WHOLE_ARCHIVE
                     PRIV_REQUIRES

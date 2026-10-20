@@ -18,6 +18,7 @@
 #include <wifi_manager.h>
 #include "i2c_bus.h"
 #include "bmi270_api.h"
+#include <esp_lvgl_port.h>
 
 namespace HalBridgeHooks {
     void SetVibrateCallback(void (*fn)(uint16_t));
@@ -774,8 +775,8 @@ public:
             []() -> bool { if (s_self) { int l = 100; bool c = false, d = false; s_self->GetBatteryLevel(l, c, d); return c; } return false; }
         );
         HalBridgeHooks::SetLvglLockCallbacks(
-            []() -> bool { return (s_self && s_self->display_) ? s_self->display_->Lock(1000) : true; },
-            []() { if (s_self && s_self->display_) s_self->display_->Unlock(); }
+            []() -> bool { return lvgl_port_lock(1000); },
+            []() { lvgl_port_unlock(); }
         );
 
         if (display_) {
