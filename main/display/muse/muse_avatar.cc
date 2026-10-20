@@ -5,6 +5,7 @@
 #include <esp_log.h>
 #include <cmath>
 #include <cstring>
+#include <cstdlib>
 
 static const char* TAG = "MuseAvatar";
 
@@ -76,7 +77,7 @@ MuseAvatar::MuseAvatar(lv_obj_t* parent, int size_px, int screen_diameter)
     // Enable touch interaction
     lv_obj_add_flag(image_obj_, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_set_user_data(image_obj_, this);
-    lv_obj_add_event_cb(image_obj_, TouchEventCallback, LV_EVENT_CLICKED, nullptr);
+    lv_obj_add_event_cb(image_obj_, TouchEventCallback, LV_EVENT_ALL, nullptr);
 
     mode_start_us_ = esp_timer_get_time();
 
@@ -114,11 +115,52 @@ void MuseAvatar::TouchEventCallback(lv_event_t* e) {
     auto* obj = static_cast<lv_obj_t*>(lv_event_get_target(e));
     if (!obj) return;
     auto* self = static_cast<MuseAvatar*>(lv_obj_get_user_data(obj));
-    if (self) {
-        self->TriggerHappy(1.0f);
-        if (self->touch_cb_) {
-            self->touch_cb_();
+    if (!self) return;
+
+    lv_event_code_t code = lv_event_get_code(e);
+
+    if (code == LV_EVENT_GESTURE) {
+        lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_active());
+        if (dir == LV_DIR_LEFT || dir == LV_DIR_RIGHT) {
+            // 滑动手势：傲娇偏头转开
+            self->TriggerAction(MUSE_ACTION_SULKY, 2.4f);
+        } else if (dir == LV_DIR_TOP) {
+            // 向上滑：得意欢呼大弹跳
+            self->TriggerAction(MUSE_ACTION_EXCITED, 2.5f);
+        } else if (dir == LV_DIR_BOTTOM) {
+            // 向下滑：果冻下蹲形变
+            self->TriggerAction(MUSE_ACTION_POKE, 1.8f);
         }
+        if (self->touch_cb_) self->touch_cb_();
+    } else if (code == LV_EVENT_LONG_PRESSED) {
+        // 长按屏幕：揉眼困倦打瞌睡
+        self->TriggerAction(MUSE_ACTION_SLEEPY, 3.0f);
+        if (self->touch_cb_) self->touch_cb_();
+    } else if (code == LV_EVENT_SHORT_CLICKED || code == LV_EVENT_CLICKED) {
+        uint32_t now_ms = static_cast<uint32_t>(esp_timer_get_time() / 1000);
+        uint32_t diff = now_ms - self->last_click_ms_;
+        self->last_click_ms_ = now_ms;
+
+        // 连续双击：挥手打招呼
+        if (diff > 50 && diff < 380) {
+            self->TriggerAction(MUSE_ACTION_WAVE, 2.2f);
+        } else {
+            // 获取触摸位置区分摸头与戳肚肚
+            lv_point_t p = {0, 0};
+            lv_indev_t* indev = lv_indev_active();
+            if (indev) {
+                lv_indev_get_point(indev, &p);
+            }
+            int center_y = self->screen_diameter_ / 2;
+            if (p.y > 0 && p.y < (center_y - 15)) {
+                // 上半部摸头：眯眼欢呼爱心
+                self->TriggerAction(MUSE_ACTION_HAPPY, 2.2f);
+            } else {
+                // 下半部戳肚肚：果冻Q弹回弹
+                self->TriggerAction(MUSE_ACTION_POKE, 1.8f);
+            }
+        }
+        if (self->touch_cb_) self->touch_cb_();
     }
 }
 
@@ -202,6 +244,42 @@ void MuseAvatar::RenderTick() {
     float t = static_cast<float>(now_us) / 1000000.0f;
     float mode_t = static_cast<float>(now_us - mode_start_us_) / 1000000.0f;
 
+    // Action timer and decay
+    float action_t = 0.0f;
+    if (current_action_ != MUSE_ACTION_NONE) {
+        action_t = static_cast<float>(now_us - action_start_us_) / 1000000.0f;
+        if (action_t >= action_duration_) {
+            current_action_ = MUSE_ACTION_NONE;
+            action_intensity_ = 0.0f;
+        } else {
+            float remain = action_duration_ - action_t;
+            if (remain < 0.35f) {
+                action_intensity_ = remain / 0.35f;
+            } else {
+                action_intensity_ = 1.0f;
+            }
+        }
+    }
+
+    // 待机桌面灵动挂件：超过 18 秒无操作时，Avatar 随机做趣味动作（打哈欠/喷嚏/飞吻/傲娇/害羞）
+    if (current_mode_ == MUSE_MODE_IDLE && current_action_ == MUSE_ACTION_NONE) {
+        idle_timer_ += 0.04f;
+        if (idle_timer_ > 18.0f) {
+            idle_timer_ = 0.0f;
+            static const muse_action_t IDLE_ACTIONS[] = {
+                MUSE_ACTION_SLEEPY,
+                MUSE_ACTION_SNEEZE,
+                MUSE_ACTION_KISS,
+                MUSE_ACTION_SULKY,
+                MUSE_ACTION_SHY
+            };
+            int pick = (static_cast<int>(t * 7.0f)) % 5;
+            TriggerAction(IDLE_ACTIONS[pick], 2.4f);
+        }
+    } else {
+        idle_timer_ = 0.0f;
+    }
+
     // Decay happy level smoothly
     if (happy_level_ > 0.0f) {
         happy_level_ -= 0.035f;
@@ -222,10 +300,13 @@ void MuseAvatar::RenderTick() {
 
     muse_pose_t pose = {
         .mode = current_mode_,
+        .action = current_action_,
         .t = t,
         .mode_t = mode_t,
+        .action_t = action_t,
         .level = live_level,
         .happy = happy_level_,
+        .action_intensity = action_intensity_,
     };
 
     muse_pixel_render(&pose);
@@ -275,9 +356,30 @@ void MuseAvatar::UpdateDeviceState(DeviceState state) {
 
 void MuseAvatar::SetEmotion(const char* emotion) {
     if (!emotion) return;
-    if (strstr(emotion, "happy") || strstr(emotion, "smile") || strstr(emotion, "excited") ||
-        strstr(emotion, "joy") || strstr(emotion, "laugh") || strstr(emotion, "love")) {
-        TriggerHappy(1.0f);
+    if (strstr(emotion, "happy") || strstr(emotion, "smile") || strstr(emotion, "joy") || strstr(emotion, "cheer")) {
+        TriggerAction(MUSE_ACTION_HAPPY, 2.2f);
+    } else if (strstr(emotion, "wave") || strstr(emotion, "hello") || strstr(emotion, "hi") || strstr(emotion, "bye")) {
+        TriggerAction(MUSE_ACTION_WAVE, 2.0f);
+    } else if (strstr(emotion, "poke") || strstr(emotion, "jelly") || strstr(emotion, "bounce") || strstr(emotion, "squish")) {
+        TriggerAction(MUSE_ACTION_POKE, 1.8f);
+    } else if (strstr(emotion, "sleep") || strstr(emotion, "tired") || strstr(emotion, "yawn") || strstr(emotion, "rest")) {
+        TriggerAction(MUSE_ACTION_SLEEPY, 3.0f);
+    } else if (strstr(emotion, "shy") || strstr(emotion, "blush") || strstr(emotion, "embarrass")) {
+        TriggerAction(MUSE_ACTION_SHY, 2.5f);
+    } else if (strstr(emotion, "excited") || strstr(emotion, "dance") || strstr(emotion, "jump") || strstr(emotion, "celebrate")) {
+        TriggerAction(MUSE_ACTION_EXCITED, 2.5f);
+    } else if (strstr(emotion, "sad") || strstr(emotion, "cry") || strstr(emotion, "sorrow") || strstr(emotion, "pout") || strstr(emotion, "tear")) {
+        TriggerAction(MUSE_ACTION_SAD, 2.8f);
+    } else if (strstr(emotion, "sulky") || strstr(emotion, "hmph") || strstr(emotion, "ignore") || strstr(emotion, "angry")) {
+        TriggerAction(MUSE_ACTION_SULKY, 2.4f);
+    } else if (strstr(emotion, "shock") || strstr(emotion, "surprise") || strstr(emotion, "wow") || strstr(emotion, "omg")) {
+        TriggerAction(MUSE_ACTION_SHOCKED, 2.2f);
+    } else if (strstr(emotion, "sneeze") || strstr(emotion, "achoo") || strstr(emotion, "cold")) {
+        TriggerAction(MUSE_ACTION_SNEEZE, 2.2f);
+    } else if (strstr(emotion, "dizzy") || strstr(emotion, "faint") || strstr(emotion, "confus") || strstr(emotion, "spin")) {
+        TriggerAction(MUSE_ACTION_DIZZY, 2.8f);
+    } else if (strstr(emotion, "kiss") || strstr(emotion, "love") || strstr(emotion, "heart") || strstr(emotion, "sweet")) {
+        TriggerAction(MUSE_ACTION_KISS, 2.2f);
     }
 }
 
@@ -286,7 +388,17 @@ void MuseAvatar::SetAudioLevel(float level) {
 }
 
 void MuseAvatar::TriggerHappy(float intensity) {
-    happy_level_ = intensity;
+    TriggerAction(MUSE_ACTION_HAPPY, 2.0f);
+}
+
+void MuseAvatar::TriggerAction(muse_action_t action, float duration) {
+    current_action_ = action;
+    action_duration_ = duration;
+    action_intensity_ = 1.0f;
+    action_start_us_ = esp_timer_get_time();
+    if (action == MUSE_ACTION_HAPPY) {
+        happy_level_ = 1.0f;
+    }
 }
 
 void MuseAvatar::SetVisible(bool visible) {

@@ -99,7 +99,7 @@ public:
         }
 
         if (!muse_avatar_ || !emotion) return;
-        if (strstr(emotion, "thinking") || strstr(emotion, "confused")) {
+        if (strstr(emotion, "thinking")) {
             muse_avatar_->SetMode(MUSE_MODE_THINKING);
         } else {
             muse_avatar_->SetEmotion(emotion);
@@ -468,14 +468,30 @@ private:
             app.ToggleChatState();
         });
 
-        // Button2: 待机时触发抚摸互动，对话时调音量
+        // Button2: 待机时循环切换 12 个互动动作，对话时调音量
         button2_.OnClick([this]() {
             auto& app = Application::GetInstance();
             if (app.GetDeviceState() == kDeviceStateIdle) {
                 if (display_ && display_->GetMuseAvatar()) {
-                    display_->GetMuseAvatar()->TriggerHappy(1.0f);
+                    static int s_action_idx = 0;
+                    static const muse_action_t ACTIONS[] = {
+                        MUSE_ACTION_HAPPY,
+                        MUSE_ACTION_WAVE,
+                        MUSE_ACTION_POKE,
+                        MUSE_ACTION_EXCITED,
+                        MUSE_ACTION_KISS,
+                        MUSE_ACTION_SHY,
+                        MUSE_ACTION_SNEEZE,
+                        MUSE_ACTION_SULKY,
+                        MUSE_ACTION_DIZZY,
+                        MUSE_ACTION_SHOCKED,
+                        MUSE_ACTION_SAD,
+                        MUSE_ACTION_SLEEPY,
+                    };
+                    display_->GetMuseAvatar()->TriggerAction(ACTIONS[s_action_idx], 2.2f);
+                    s_action_idx = (s_action_idx + 1) % 12;
                     ioe_.digitalWrite(IOE_PIN_MOTOR, HIGH);
-                    vTaskDelay(pdMS_TO_TICKS(50));
+                    vTaskDelay(pdMS_TO_TICKS(40));
                     ioe_.digitalWrite(IOE_PIN_MOTOR, LOW);
                     return;
                 }

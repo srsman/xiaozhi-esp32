@@ -629,6 +629,10 @@ typedef enum {
     EYES_WIDE,
     EYES_HAPPY,
     EYES_X,
+    EYES_DIZZY,
+    EYES_SAD,
+    EYES_SHOCKED,
+    EYES_SHY,
 } eye_style_t;
 
 /* The eyes are small glossy black beads. */
@@ -644,6 +648,26 @@ static void draw_eye(float ex, float ey, float openness, eye_style_t style, floa
     if (style == EYES_X) {
         static const char *const XS[] = { "#..#", ".##.", ".##.", "#..#" };
         stamp(XS, 4, iround(ex) - 2, iround(ey) - 1, C_IRIS, C_IRIS);
+        return;
+    }
+    if (style == EYES_DIZZY) {
+        static const char *const DIZZY[] = { ".##.", "#..#", "#.#.", ".##." };
+        stamp(DIZZY, 4, iround(ex) - 2, iround(ey) - 1, C_IRIS, C_SPK);
+        return;
+    }
+    if (style == EYES_SAD) {
+        static const char *const SAD_EYE[] = { ".##.", "#o##", "##o#", ".##." };
+        stamp(SAD_EYE, 4, iround(ex) - 2, iround(ey) - 1, C_IRIS, C_WHITE);
+        return;
+    }
+    if (style == EYES_SHOCKED) {
+        static const char *const SHOCK[] = { ".###.", "#o.o#", "#o.o#", ".###." };
+        stamp(SHOCK, 4, iround(ex) - 2, iround(ey) - 1, C_IRIS, C_SHINE);
+        return;
+    }
+    if (style == EYES_SHY) {
+        static const char *const SHY[] = { "####" };
+        stamp(SHY, 1, iround(ex) - 2, iround(ey) + 1, C_IRIS, C_IRIS);
         return;
     }
     if (openness < 0.3f) {
@@ -684,6 +708,10 @@ typedef enum {
     MOUTH_TALK,
     MOUTH_GRIN,
     MOUTH_FLAT,
+    MOUTH_SAD,
+    MOUTH_KISS,
+    MOUTH_YAWN,
+    MOUTH_SULKY,
 } mouth_t;
 
 static void draw_mouth(int x, int y, mouth_t m, float open)
@@ -724,6 +752,26 @@ static void draw_mouth(int x, int y, mouth_t m, float open)
     case MOUTH_FLAT: {
         static const char *const S[] = { "##" };
         stamp(S, 1, x - 1, y + 1, C_MOUTH, C_MOUTH);
+        break;
+    }
+    case MOUTH_SAD: {
+        static const char *const S[] = { ".##.", "#..#" };
+        stamp(S, 2, x - 2, y + 1, C_MOUTH, C_MOUTH);
+        break;
+    }
+    case MOUTH_KISS: {
+        static const char *const S[] = { ".##.", "#oo#", ".##." };
+        stamp(S, 3, x - 1, y, C_MOUTH, C_TONGUE);
+        break;
+    }
+    case MOUTH_YAWN: {
+        static const char *const S[] = { ".###.", "#ooo#", ".###." };
+        stamp(S, 3, x - 2, y, C_MOUTH, C_TONGUE);
+        break;
+    }
+    case MOUTH_SULKY: {
+        static const char *const S[] = { "..##", "###." };
+        stamp(S, 2, x - 1, y + 1, C_MOUTH, C_MOUTH);
         break;
     }
     }
@@ -827,6 +875,46 @@ static void draw_alert(int x, int y)
     stamp(BANG, 6, x - 2, y, C_ACC, C_ACC);
 }
 
+static void draw_zzz(float cx, float top, float t)
+{
+    static const char *const Z_SM[] = { "###", "..#", ".#.", "###" };
+    static const char *const Z_LG[] = { "####", "...#", "..#.", ".#..", "####" };
+    for (int i = 0; i < 2; i++) {
+        float ph = fracf(t * 0.8f + i * 0.5f);
+        int zx = iround(cx + 8 + i * 6 + sinf(ph * 3.0f) * 2);
+        int zy = iround(top - 2 - ph * 12);
+        if (i == 0) {
+            stamp(Z_SM, 4, zx, zy, C_ACC, C_ACC);
+        } else {
+            stamp(Z_LG, 5, zx, zy, C_WHITE, C_WHITE);
+        }
+    }
+}
+
+static void draw_tear(int x, int y)
+{
+    static const char *const TEAR[] = { ".#.", "###", "###", ".#." };
+    stamp(TEAR, 4, x, y, C_ACC, C_WHITE);
+}
+
+static void draw_flying_heart(float x, float y, float ph)
+{
+    static const char *const HEART_SM[] = { ".#.#.", "#####", ".###.", "..#.." };
+    int hx = iround(x + ph * 12.0f);
+    int hy = iround(y - ph * 8.0f + sinf(ph * TAU) * 1.5f);
+    stamp(HEART_SM, 4, hx, hy, C_HEART, C_WHITE);
+}
+
+static void draw_sneeze_mist(float cx, float cy, float pht)
+{
+    if (pht > 0.0f && pht < 0.6f) {
+        float d = pht * 20.0f;
+        px(iround(cx + d * 0.9f), iround(cy + 4 - d * 0.2f), C_SPK);
+        px(iround(cx + d * 1.1f), iround(cy + 2 + d * 0.1f), C_WHITE);
+        px(iround(cx + d * 0.8f), iround(cy + 6 + d * 0.3f), C_ACC);
+    }
+}
+
 /* ---------------------------------------------------------------------------
  * Frame
  * ------------------------------------------------------------------------- */
@@ -890,6 +978,13 @@ void muse_pixel_render(const muse_pose_t *p)
     s_eyes.last_t = p->t;
 
     muse_mode_t mode = p->mode;
+    muse_action_t act = p->action;
+    float at = p->action_t;
+    float a_int = p->action_intensity;
+    if (act != MUSE_ACTION_NONE && a_int <= 0.0f) {
+        a_int = 1.0f;
+    }
+
     /* Powering down: the avatar waves, then nods off as the glow fades. */
     float fade = mode == MUSE_MODE_OFF ? clampf(1.0f - p->mode_t / 1.3f, 0, 1) : 1.0f;
     float happy = p->happy;
@@ -930,6 +1025,71 @@ void muse_pixel_render(const muse_pose_t *p)
     float boot = mode == MUSE_MODE_BOOT ? clampf(p->mode_t / 1.4f, 0, 1) : 1.0f;
     float pop = mode == MUSE_MODE_BOOT ? clampf(p->mode_t / 0.6f, 0, 1) : 1.0f;
     float squash = 1.0f - (1.0f - pop) * 0.35f + sinf(pop * 3.1416f) * 0.06f;
+
+    /* ---- Action body motion overrides ---- */
+    if (a_int > 0.01f) {
+        switch (act) {
+        case MUSE_ACTION_HAPPY:
+            hop = fabsf(sinf(at * 12.0f)) * 4.0f * a_int;
+            break;
+        case MUSE_ACTION_WAVE:
+            lean = sinf(at * 3.5f) * 1.5f * a_int;
+            bob = sinf(at * 4.0f) * 0.5f * a_int;
+            break;
+        case MUSE_ACTION_POKE: {
+            float decay = expf(-at * 4.2f);
+            float jelly = sinf(at * 24.0f) * decay;
+            squash = 1.0f - (0.35f * decay - jelly * 0.22f) * a_int;
+            break;
+        }
+        case MUSE_ACTION_SLEEPY:
+            bob = (1.5f + sinf(at * 1.6f) * 0.4f) * a_int;
+            break;
+        case MUSE_ACTION_SHY:
+            lean = sinf(at * 4.0f) * 1.2f * a_int;
+            bob = sinf(at * 8.0f) * 0.3f * a_int;
+            break;
+        case MUSE_ACTION_EXCITED:
+            hop = fabsf(sinf(at * 14.0f)) * 5.0f * a_int;
+            squash = 1.0f + sinf(at * 28.0f) * 0.12f * a_int;
+            break;
+        case MUSE_ACTION_SAD:
+            bob = 2.2f * a_int;
+            break;
+        case MUSE_ACTION_SULKY:
+            lean = 3.6f * a_int;
+            break;
+        case MUSE_ACTION_SHOCKED: {
+            float shock = expf(-at * 3.5f) * a_int;
+            squash = 1.0f + 0.16f * shock;
+            lean = sinf(at * 45.0f) * 0.7f * shock;
+            break;
+        }
+        case MUSE_ACTION_SNEEZE:
+            if (at < 0.75f) {
+                float charge = at / 0.75f;
+                lean = -3.8f * charge * a_int;
+                bob = -1.5f * charge * a_int;
+            } else if (at < 1.15f) {
+                float burst = 1.0f - (at - 0.75f) / 0.4f;
+                lean = 5.5f * burst * a_int;
+                bob = 3.2f * burst * a_int;
+            } else {
+                lean = 0.5f * a_int;
+            }
+            break;
+        case MUSE_ACTION_DIZZY:
+            lean = sinf(at * 5.5f) * 3.6f * a_int;
+            bob = cosf(at * 5.5f) * 1.6f * a_int;
+            break;
+        case MUSE_ACTION_KISS:
+            lean = 1.3f * a_int;
+            bob = sinf(at * 3.0f) * 0.4f * a_int;
+            break;
+        default:
+            break;
+        }
+    }
 
     float breathe = sinf(t * breathe_rate + 1.0f) * 0.03f;
     avatar_t j;
@@ -1005,6 +1165,80 @@ void muse_pixel_render(const muse_pose_t *p)
         break;
     }
     }
+
+    /* ---- Action limb overrides ---- */
+    if (a_int > 0.01f) {
+        switch (act) {
+        case MUSE_ACTION_HAPPY: {
+            float wig = sinf(at * 15.0f) * 0.3f;
+            arms[0] = (limb_t){ j.cx - adx - 1.0f, j.cy - 5.0f, 2.5f + wig };
+            arms[1] = (limb_t){ j.cx + adx + 1.0f, j.cy - 5.0f, -2.5f - wig };
+            break;
+        }
+        case MUSE_ACTION_WAVE: {
+            float w = sinf(at * 14.0f) * 0.45f;
+            arms[0] = (limb_t){ j.cx - adx, ay, -0.3f };
+            arms[1] = (limb_t){ j.cx + adx + 1.5f, j.cy - 5.0f, -2.3f - w };
+            break;
+        }
+        case MUSE_ACTION_POKE:
+            arms[0] = (limb_t){ j.cx - adx - 2.0f, j.cy + 2.0f, 0.8f };
+            arms[1] = (limb_t){ j.cx + adx + 2.0f, j.cy + 2.0f, -0.8f };
+            break;
+        case MUSE_ACTION_SLEEPY:
+            arms[0] = (limb_t){ j.cx - adx, ay, -0.2f };
+            arms[1] = (limb_t){ j.fx + j.fa * 0.25f, j.fy + 2.0f, -1.8f };
+            break;
+        case MUSE_ACTION_SHY:
+            arms[0] = (limb_t){ j.fx - j.fa * 0.55f, j.fy + 4.0f, 1.2f };
+            arms[1] = (limb_t){ j.fx + j.fa * 0.55f, j.fy + 4.0f, -1.2f };
+            break;
+        case MUSE_ACTION_EXCITED: {
+            float jump_wig = sinf(at * 18.0f) * 0.35f;
+            arms[0] = (limb_t){ j.cx - adx - 1.5f, j.cy - 6.0f, 2.7f + jump_wig };
+            arms[1] = (limb_t){ j.cx + adx + 1.5f, j.cy - 6.0f, -2.7f - jump_wig };
+            break;
+        }
+        case MUSE_ACTION_SAD:
+            arms[0] = (limb_t){ j.cx - 2.5f, j.cy + 4.5f, 0.35f };
+            arms[1] = (limb_t){ j.cx + 2.5f, j.cy + 4.5f, -0.35f };
+            break;
+        case MUSE_ACTION_SULKY:
+            arms[0] = (limb_t){ j.cx - adx + 2.0f, j.cy + 2.0f, 0.9f };
+            arms[1] = (limb_t){ j.cx + adx - 1.0f, j.cy + 1.0f, -1.0f };
+            break;
+        case MUSE_ACTION_SHOCKED:
+            arms[0] = (limb_t){ j.cx - adx - 3.0f, j.cy - 1.0f, 1.35f };
+            arms[1] = (limb_t){ j.cx + adx + 3.0f, j.cy - 1.0f, -1.35f };
+            break;
+        case MUSE_ACTION_SNEEZE:
+            if (at < 0.75f) {
+                arms[0] = (limb_t){ j.cx - 3.0f, j.fy + 3.0f, 0.3f };
+                arms[1] = (limb_t){ j.cx + 3.0f, j.fy + 3.0f, -0.3f };
+            } else if (at < 1.15f) {
+                arms[0] = (limb_t){ j.cx - adx, ay + 3.0f, -1.8f };
+                arms[1] = (limb_t){ j.cx + adx, ay + 3.0f, 1.8f };
+            }
+            break;
+        case MUSE_ACTION_DIZZY: {
+            float d_sway = sinf(at * 5.5f) * 2.0f;
+            arms[0] = (limb_t){ j.cx - adx + d_sway, ay, -0.4f + cosf(at * 5.5f) * 0.6f };
+            arms[1] = (limb_t){ j.cx + adx + d_sway, ay, 0.4f + cosf(at * 5.5f) * 0.6f };
+            feet[0].y += sinf(at * 5.5f) * 1.0f;
+            feet[1].y -= sinf(at * 5.5f) * 1.0f;
+            break;
+        }
+        case MUSE_ACTION_KISS: {
+            float push = clampf(at / 0.9f, 0.0f, 1.0f);
+            arms[0] = (limb_t){ j.cx - adx, ay, -0.3f };
+            arms[1] = (limb_t){ j.fx + 3.5f + push * 7.5f, j.fy + 3.0f - push * 2.5f, -1.4f - push * 0.7f };
+            break;
+        }
+        default:
+            break;
+        }
+    }
+
     draw_avatar(&j, arms, feet);
 
     /* ---- face ---- */
@@ -1047,6 +1281,75 @@ void muse_pixel_render(const muse_pose_t *p)
         mouth = MOUTH_GRIN;
     }
 
+    float blush = 0.55f + happy * 0.45f + (mode == MUSE_MODE_SPEAKING ? 0.15f : 0.0f);
+
+    /* ---- Action face overrides ---- */
+    if (a_int > 0.01f) {
+        switch (act) {
+        case MUSE_ACTION_HAPPY:
+            style = EYES_HAPPY;
+            mouth = MOUTH_GRIN;
+            break;
+        case MUSE_ACTION_WAVE:
+            style = EYES_NORMAL;
+            mouth = MOUTH_SMILE;
+            break;
+        case MUSE_ACTION_POKE:
+            style = at < 0.3f ? EYES_HAPPY : EYES_WIDE;
+            mouth = MOUTH_FLAT;
+            break;
+        case MUSE_ACTION_SLEEPY:
+            open = clampf(1.0f - at * 0.8f, 0.15f, 1.0f);
+            mouth = at < 1.0f ? MOUTH_YAWN : MOUTH_SMILE;
+            break;
+        case MUSE_ACTION_SHY:
+            style = EYES_SHY;
+            mouth = MOUTH_SMILE;
+            blush = 1.0f;
+            break;
+        case MUSE_ACTION_EXCITED:
+            style = EYES_WIDE;
+            mouth = MOUTH_GRIN;
+            break;
+        case MUSE_ACTION_SAD:
+            style = EYES_SAD;
+            mouth = MOUTH_SAD;
+            break;
+        case MUSE_ACTION_SULKY:
+            mouth = MOUTH_SULKY;
+            s_eyes.gx = -0.9f;
+            s_eyes.gy = -0.6f;
+            break;
+        case MUSE_ACTION_SHOCKED:
+            style = EYES_SHOCKED;
+            mouth = MOUTH_O;
+            break;
+        case MUSE_ACTION_SNEEZE:
+            if (at < 0.75f) {
+                style = EYES_HAPPY;
+                mouth = MOUTH_O;
+            } else if (at < 1.15f) {
+                style = EYES_X;
+                mouth = MOUTH_TALK;
+                mouth_open = 1.0f;
+            } else {
+                style = EYES_NORMAL;
+                mouth = MOUTH_SMILE;
+            }
+            break;
+        case MUSE_ACTION_DIZZY:
+            style = EYES_DIZZY;
+            mouth = MOUTH_HMM;
+            break;
+        case MUSE_ACTION_KISS:
+            mouth = MOUTH_KISS;
+            style = EYES_HAPPY;
+            break;
+        default:
+            break;
+        }
+    }
+
     draw_eye(j.fx - eye_dx, eye_y, open, style, s_eyes.gx, s_eyes.gy);
     draw_eye(j.fx + eye_dx, eye_y, open, style, s_eyes.gx, s_eyes.gy);
 
@@ -1060,7 +1363,6 @@ void muse_pixel_render(const muse_pose_t *p)
         px(br - 1, by - 1, C_BROW); px(br, by - 1, C_BROW);
     }
 
-    float blush = 0.55f + happy * 0.45f + (mode == MUSE_MODE_SPEAKING ? 0.15f : 0.0f);
     draw_blush(iround(j.fx - j.fa * 0.72f), iround(eye_y + 2), blush);
     draw_blush(iround(j.fx + j.fa * 0.72f), iround(eye_y + 2), blush);
 
@@ -1083,4 +1385,35 @@ void muse_pixel_render(const muse_pose_t *p)
         draw_alert(iround(j.cx + 18), iround(top - 1));
     }
 
+    /* ---- Action foreground particles & effects ---- */
+    if (a_int > 0.01f) {
+        switch (act) {
+        case MUSE_ACTION_HAPPY:
+            draw_hearts(j.cx, top + 1, at, a_int);
+            break;
+        case MUSE_ACTION_SLEEPY:
+            draw_zzz(j.cx + 8, top, at);
+            break;
+        case MUSE_ACTION_SAD:
+            draw_tear(iround(j.fx + j.fa * 0.7f), iround(eye_y + 3));
+            break;
+        case MUSE_ACTION_SHOCKED:
+            draw_alert(iround(j.cx + 14), iround(top - 2));
+            break;
+        case MUSE_ACTION_SNEEZE:
+            if (at >= 0.75f && at < 1.35f) {
+                draw_sneeze_mist(j.cx + 8, j.fy + 2, at - 0.75f);
+            }
+            break;
+        case MUSE_ACTION_DIZZY:
+            draw_sparkle(iround(j.cx + cosf(at * 6.0f) * 14.0f), iround(top - 2 + sinf(at * 6.0f) * 3.0f), 0.9f, true);
+            draw_sparkle(iround(j.cx - cosf(at * 6.0f) * 14.0f), iround(top - 2 - sinf(at * 6.0f) * 3.0f), 0.9f, false);
+            break;
+        case MUSE_ACTION_KISS:
+            draw_flying_heart(j.fx + 4.0f, j.fy + 2.0f, clampf(at * 0.8f, 0.0f, 1.0f));
+            break;
+        default:
+            break;
+        }
+    }
 }

@@ -21,12 +21,14 @@ public:
     void SetEmotion(const char* emotion);
     void SetAudioLevel(float level);
     void TriggerHappy(float intensity = 1.0f);
+    void TriggerAction(muse_action_t action, float duration = 2.0f);
     void SetVisible(bool visible);
     void OnTouch(TouchCallback cb);
 
     inline lv_obj_t* GetObject() const { return image_obj_; }
     inline lv_obj_t* GetRingObject() const { return ring_obj_; }
     inline muse_mode_t GetCurrentMode() const { return current_mode_; }
+    inline muse_action_t GetCurrentAction() const { return current_action_; }
 
 private:
     static void TimerCallback(lv_timer_t* timer);
@@ -49,6 +51,13 @@ private:
     float audio_level_ = 0.0f;
     float happy_level_ = 0.0f;
     float speech_phase_ = 0.0f;
+
+    muse_action_t current_action_ = MUSE_ACTION_NONE;
+    int64_t action_start_us_ = 0;
+    float action_duration_ = 2.0f;
+    float action_intensity_ = 0.0f;
+    float idle_timer_ = 0.0f;
+    uint32_t last_click_ms_ = 0;
 
     TouchCallback touch_cb_ = nullptr;
 };
