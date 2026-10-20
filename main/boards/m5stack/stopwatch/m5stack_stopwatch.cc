@@ -11,6 +11,7 @@
 #include "config.h"
 #include "assets/lang_config.h"
 #include "watch_apps.h"
+#include "rx8130.h"
 #include <esp_log.h>
 #include <driver/i2c_master.h>
 #include <driver/spi_master.h>
@@ -394,6 +395,80 @@ private:
         vTaskDelay(pdMS_TO_TICKS(50));
 
         vTaskDelay(pdMS_TO_TICKS(100));
+
+        // Initialize RX8130 Hardware RTC
+        Rx8130Rtc::GetInstance().Init(i2c_bus_);
+    }
+
+    i2c_master_dev_handle_t imu_dev_ = nullptr;
+    TaskHandle_t imu_task_handle_ = nullptr;
+
+    void InitializeImu() {
+        if (!i2c_bus_) return;
+        i2c_device_config_t dev_cfg = {
+            .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+            .device_address = 0x68, // BMI270 I2C
+            .scl_speed_hz = 100000,
+        };
+        esp_err_t err = i2c_master_bus_add_device(i2c_bus_, &dev_cfg, &imu_dev_);
+        if (err != ESP_OK || !imu_dev_) {
+            ESP_LOGW(TAG, "BMI270 IMU add device failed: %s", esp_err_to_name(err));
+            return;
+        }
+
+        // Enable accelerometer: write 0x7D (PWR_CTRL) = 0x0E (accel + gyro en)
+        uint8_t pwr_ctrl[2] = {0x7D, 0x0E};
+        i2c_master_transmit(imu_dev_, pwr_ctrl, 2, 50);
+        uint8_t pwr_conf[2] = {0x7C, 0x00}; // disable advanced power saving
+        i2c_master_transmit(imu_dev_, pwr_conf, 2, 50);
+
+        // Start background IMU motion task
+        xTaskCreate([](void* arg) {
+            auto* self = static_cast<M5StackStopwatchBoard*>(arg);
+            if (!self || !self->imu_dev_) {
+                vTaskDelete(NULL);
+                return;
+            }
+
+            int16_t prev_x = 0, prev_y = 0, prev_z = 0;
+            bool has_prev = false;
+            int64_t last_shake_tick = 0;
+
+            while (true) {
+                uint8_t reg = 0x0C; // Accel X LSB (0x0C-0x11)
+                uint8_t raw[6] = {0};
+                if (i2c_master_transmit_receive(self->imu_dev_, &reg, 1, raw, 6, 50) == ESP_OK) {
+                    int16_t cur_x = (int16_t)(raw[0] | (raw[1] << 8));
+                    int16_t cur_y = (int16_t)(raw[2] | (raw[3] << 8));
+                    int16_t cur_z = (int16_t)(raw[4] | (raw[5] << 8));
+
+                    if (has_prev) {
+                        int dx = std::abs((int)cur_x - (int)prev_x);
+                        int dy = std::abs((int)cur_y - (int)prev_y);
+                        int dz = std::abs((int)cur_z - (int)prev_z);
+                        int shake_score = dx + dy + dz;
+
+                        int64_t now_ms = esp_timer_get_time() / 1000;
+                        if (shake_score > 22000 && (now_ms - last_shake_tick) > 2000) {
+                            last_shake_tick = now_ms;
+                            ESP_LOGI(TAG, "Shake detected (score: %d), trigger dizzy reaction", shake_score);
+
+                            if (self->display_ && self->display_->GetMuseAvatar()) {
+                                self->display_->GetMuseAvatar()->TriggerAction(MUSE_ACTION_DIZZY, 2.5f);
+                                self->ioe_.digitalWrite(IOE_PIN_MOTOR, HIGH);
+                                vTaskDelay(pdMS_TO_TICKS(80));
+                                self->ioe_.digitalWrite(IOE_PIN_MOTOR, LOW);
+                            }
+                        }
+                    }
+                    prev_x = cur_x;
+                    prev_y = cur_y;
+                    prev_z = cur_z;
+                    has_prev = true;
+                }
+                vTaskDelay(pdMS_TO_TICKS(60));
+            }
+        }, "imu_task", 3072, this, 3, &imu_task_handle_);
     }
 
     i2c_master_dev_handle_t touch_dev_ = nullptr;
@@ -565,6 +640,7 @@ public:
         InitializeDisplay();
         InitializeTouch();
         InitializeButtons();
+        InitializeImu();
 
         if (display_) {
             DisplayLockGuard lock(display_);
