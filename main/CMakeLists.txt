@@ -245,9 +245,8 @@ elseif(CONFIG_BOARD_TYPE_M5STACK_STOPWATCH)
         ${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/stopwatch/hal/*.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/stopwatch/hal/utils/button/*.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../components/mooncake/src/*.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../components/mooncake/src/ability/*.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../components/mooncake/src/ability_manager/*.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../components/mooncake_log/src/*.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../components/smooth_ui_toolkit/src/*.cpp
     )
     list(APPEND SOURCES ${STOPWATCH_EXTRA_SRCS})
     list(APPEND INCLUDE_DIRS
