@@ -57,9 +57,7 @@ public:
                     bool mirror_x,
                     bool mirror_y,
                     bool swap_xy)
-        : SpiLcdDisplay(io_handle, panel_handle, width, height, offset_x, offset_y, mirror_x, mirror_y, swap_xy) {
-        current_theme_ = LvglThemeManager::GetInstance().GetTheme("dark");
-    }
+        : SpiLcdDisplay(io_handle, panel_handle, width, height, offset_x, offset_y, mirror_x, mirror_y, swap_xy) {}
 
     void SetTouchCallback(std::function<void()> cb) {
         touch_cb_ = std::move(cb);
