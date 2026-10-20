@@ -20,7 +20,7 @@ jobs:
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           source "$IDF_PATH/export.sh"
-          python scripts/build.py m5stack/stopwatch --name m5stack-stopwatch
+          python scripts/build.py m5stack/stopwatch --name m5stack-stopwatch --language zh-CN
 
       - name: Upload Binary Artifact
         uses: actions/upload-artifact@v4

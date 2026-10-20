@@ -71,7 +71,27 @@ public:
     }
 
     void SetStatus(const char* status) override {
-        SpiLcdDisplay::SetStatus(status);
+        const char* zh_status = status;
+        if (status != nullptr) {
+            if (strstr(status, "Standby") || strstr(status, "standby")) {
+                zh_status = "待命";
+            } else if (strstr(status, "Listening") || strstr(status, "listening")) {
+                zh_status = "聆听中...";
+            } else if (strstr(status, "Speaking") || strstr(status, "speaking")) {
+                zh_status = "说话中...";
+            } else if (strstr(status, "Connecting") || strstr(status, "connecting")) {
+                zh_status = "连接中...";
+            } else if (strstr(status, "Thinking") || strstr(status, "thinking")) {
+                zh_status = "思考中...";
+            } else if (strstr(status, "Wi-Fi Config") || strstr(status, "WiFi Config") || strstr(status, "Config")) {
+                zh_status = "配网模式";
+            } else if (strstr(status, "Initializing") || strstr(status, "initializing")) {
+                zh_status = "初始化...";
+            } else if (strstr(status, "Upgrading") || strstr(status, "upgrading")) {
+                zh_status = "升级中...";
+            }
+        }
+        SpiLcdDisplay::SetStatus(zh_status);
         if (!muse_avatar_ || !status) return;
 
         if (std::strcmp(status, Lang::Strings::CONNECTING) == 0 ||
@@ -85,6 +105,28 @@ public:
         } else if (std::strcmp(status, Lang::Strings::STANDBY) == 0 || strstr(status, "待命") || strstr(status, "Standby")) {
             muse_avatar_->SetMode(MUSE_MODE_IDLE);
         }
+    }
+
+    void ShowNotification(const std::string& notification, int duration_ms = 3000) override {
+        std::string zh_notify = notification;
+        if (zh_notify.find("Entering Wi-Fi config mode") != std::string::npos) {
+            zh_notify = "进入配网模式...";
+        } else if (zh_notify.find("Volume:") != std::string::npos) {
+            zh_notify = "音量: " + zh_notify.substr(zh_notify.find("Volume:") + 7);
+        }
+        SpiLcdDisplay::ShowNotification(zh_notify, duration_ms);
+    }
+
+    void SetChatMessage(const char* role, const char* content) override {
+        std::string zh_content = content ? content : "";
+        if (zh_content.find("Connect to AP:") != std::string::npos ||
+            zh_content.find("Connect to hotspot") != std::string::npos ||
+            zh_content.find("Open browser to:") != std::string::npos) {
+            std::string ssid = WifiManager::GetInstance().GetApSsid();
+            std::string url = WifiManager::GetInstance().GetApWebUrl();
+            zh_content = "手机连接热点 " + ssid + "\n浏览器访问 " + url;
+        }
+        SpiLcdDisplay::SetChatMessage(role, zh_content.c_str());
     }
 
     void SetEmotion(const char* emotion) override {
