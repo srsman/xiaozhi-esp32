@@ -57,13 +57,7 @@ public:
                     bool mirror_x,
                     bool mirror_y,
                     bool swap_xy)
-        : SpiLcdDisplay(io_handle, panel_handle, width, height, offset_x, offset_y, mirror_x, mirror_y, swap_xy) {
-        // 开机硬件刷纯黑，避免任何白屏闪烁
-        std::vector<uint16_t> black_buf(width_, 0x0000);
-        for (int y = 0; y < height_; y++) {
-            esp_lcd_panel_draw_bitmap(panel_, 0, y, width_, y + 1, black_buf.data());
-        }
-    }
+        : SpiLcdDisplay(io_handle, panel_handle, width, height, offset_x, offset_y, mirror_x, mirror_y, swap_xy) {}
 
     void SetTouchCallback(std::function<void()> cb) {
         touch_cb_ = std::move(cb);

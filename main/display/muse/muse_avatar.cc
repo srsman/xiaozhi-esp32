@@ -132,8 +132,18 @@ void MuseAvatar::UpdateRing(float t, float mode_t, float live_level) {
         lv_arc_set_angles(ring_obj_, 0, 80);
 
         // 彩虹渐变霓虹流光 (天青 -> 亮紫 -> 暖金)
-        float hue = fmodf(t * 180.0f, 360.0f);
-        lv_color_t pulse_color = lv_color_hsv_to_rgb(static_cast<uint16_t>(hue), 90, 100);
+        float phase = fmodf(t * 1.8f, 3.0f);
+        lv_color_t pulse_color;
+        if (phase < 1.0f) {
+            float p = phase;
+            pulse_color = lv_color_make(static_cast<uint8_t>(20 + 172 * p), static_cast<uint8_t>(240 - 200 * p), 255);
+        } else if (phase < 2.0f) {
+            float p = phase - 1.0f;
+            pulse_color = lv_color_make(static_cast<uint8_t>(192 + 53 * p), static_cast<uint8_t>(40 + 118 * p), static_cast<uint8_t>(255 - 244 * p));
+        } else {
+            float p = phase - 2.0f;
+            pulse_color = lv_color_make(static_cast<uint8_t>(245 - 225 * p), static_cast<uint8_t>(158 + 82 * p), static_cast<uint8_t>(11 + 244 * p));
+        }
         lv_obj_set_style_arc_color(ring_obj_, pulse_color, LV_PART_INDICATOR);
         lv_obj_set_style_arc_opa(ring_obj_, LV_OPA_COVER, LV_PART_INDICATOR);
     } else if (current_mode_ == MUSE_MODE_LISTENING) {
