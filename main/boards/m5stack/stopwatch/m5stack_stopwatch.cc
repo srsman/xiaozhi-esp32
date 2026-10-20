@@ -57,7 +57,9 @@ public:
                     bool mirror_x,
                     bool mirror_y,
                     bool swap_xy)
-        : SpiLcdDisplay(io_handle, panel_handle, width, height, offset_x, offset_y, mirror_x, mirror_y, swap_xy) {}
+        : SpiLcdDisplay(io_handle, panel_handle, width, height, offset_x, offset_y, mirror_x, mirror_y, swap_xy) {
+        current_theme_ = LvglThemeManager::GetInstance().GetTheme("dark");
+    }
 
     void SetTouchCallback(std::function<void()> cb) {
         touch_cb_ = std::move(cb);
@@ -89,11 +91,81 @@ public:
 
     void SetEmotion(const char* emotion) override {
         SpiLcdDisplay::SetEmotion(emotion);
+        DisplayLockGuard lock(this);
+        // 保持基类原有静态组件隐藏，由 Muse Avatar 独占渲染
+        if (emoji_label_ != nullptr) {
+            lv_obj_add_flag(emoji_label_, LV_OBJ_FLAG_HIDDEN);
+        }
+        if (emoji_image_ != nullptr) {
+            lv_obj_add_flag(emoji_image_, LV_OBJ_FLAG_HIDDEN);
+        }
+
         if (!muse_avatar_ || !emotion) return;
         if (strstr(emotion, "thinking") || strstr(emotion, "confused")) {
             muse_avatar_->SetMode(MUSE_MODE_THINKING);
         } else {
             muse_avatar_->SetEmotion(emotion);
+        }
+    }
+
+    void SetTheme(Theme* theme) override {
+        // 先调用基类更新字体、图标等必要属性
+        SpiLcdDisplay::SetTheme(theme);
+        DisplayLockGuard lock(this);
+
+        // 强行锁定全屏纯黑 AMOLED，彻底阻断任何联网激活、配置下发或 light 主题将背景刷白
+        lv_obj_t* scr = lv_screen_active();
+        if (scr != nullptr) {
+            lv_obj_set_style_bg_color(scr, lv_color_hex(0x000000), 0);
+            lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
+            lv_obj_set_style_text_color(scr, lv_color_hex(0xffffff), 0);
+        }
+
+        if (container_ != nullptr) {
+            lv_obj_set_style_bg_image_src(container_, nullptr, 0);
+            lv_obj_set_style_bg_color(container_, lv_color_hex(0x000000), 0);
+            lv_obj_set_style_bg_opa(container_, LV_OPA_COVER, 0);
+            lv_obj_set_style_border_width(container_, 0, 0);
+        }
+
+        if (status_bar_ != nullptr) {
+            lv_obj_set_style_bg_opa(status_bar_, LV_OPA_TRANSP, 0);
+        }
+        if (bottom_bar_ != nullptr) {
+            lv_obj_set_style_bg_color(bottom_bar_, lv_color_hex(0x000000), 0);
+            lv_obj_set_style_bg_opa(bottom_bar_, LV_OPA_TRANSP, 0);
+            lv_obj_set_style_border_width(bottom_bar_, 0, 0);
+        }
+        if (top_bar_ != nullptr) {
+            lv_obj_set_style_bg_color(top_bar_, lv_color_hex(0x000000), 0);
+            lv_obj_set_style_bg_opa(top_bar_, LV_OPA_TRANSP, 0);
+            lv_obj_set_style_border_width(top_bar_, 0, 0);
+        }
+        if (emoji_box_ != nullptr) {
+            lv_obj_set_style_bg_opa(emoji_box_, LV_OPA_TRANSP, 0);
+            lv_obj_set_style_border_width(emoji_box_, 0, 0);
+        }
+
+        // 确保所有文字始终维持纯白与冷光浅青
+        if (status_label_ != nullptr) {
+            lv_obj_set_style_text_color(status_label_, lv_color_hex(0xffffff), 0);
+        }
+        if (notification_label_ != nullptr) {
+            lv_obj_set_style_text_color(notification_label_, lv_color_hex(0x38bdf8), 0);
+        }
+        if (chat_message_label_ != nullptr) {
+            lv_obj_set_style_text_color(chat_message_label_, lv_color_hex(0xf1f5f9), 0);
+        }
+        if (network_label_ != nullptr) {
+            lv_obj_set_style_text_color(network_label_, lv_color_hex(0xffffff), 0);
+        }
+        if (battery_label_ != nullptr) {
+            lv_obj_set_style_text_color(battery_label_, lv_color_hex(0xffffff), 0);
+        }
+
+        // 保持最外层流光脉冲环置顶
+        if (muse_avatar_ && muse_avatar_->GetRingObject()) {
+            lv_obj_move_foreground(muse_avatar_->GetRingObject());
         }
     }
 
