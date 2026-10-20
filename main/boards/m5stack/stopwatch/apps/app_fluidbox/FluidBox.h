@@ -3,24 +3,10 @@
 
 #pragma once
 
-#ifndef TFT_BLACK
-#define TFT_BLACK 0x0000
-#endif
-
-class LGFX_Device {
-public:
-    virtual ~LGFX_Device() = default;
-    virtual int width() const { return 466; }
-    virtual int height() const { return 466; }
-    virtual void startWrite() {}
-    virtual void endWrite() {}
-    virtual void fillScreen(uint32_t color) {}
-    virtual void fillCircle(int32_t x, int32_t y, int32_t r, uint32_t color) {}
-    virtual void drawPixel(int32_t x, int32_t y, uint32_t color) {}
-};
-#include <freertos/FreeRTOS.h>
-#include <stddef.h>
 #include <stdint.h>
+#include <stddef.h>
+#include <freertos/FreeRTOS.h>
+#include <hal/hal.h>
 
 #include "FluidBoxConfig.h"
 

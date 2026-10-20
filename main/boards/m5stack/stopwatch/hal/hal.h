@@ -27,6 +27,9 @@
 #include <i2c_bus.h>
 #include <string_view>
 #include <array>
+#ifndef LGFX_DEVICE_DEFINED
+#define LGFX_DEVICE_DEFINED
+#include <cstdint>
 #ifndef TFT_BLACK
 #define TFT_BLACK 0x0000
 #endif
@@ -44,6 +47,7 @@ public:
 };
 
 class LGFX_Sprite : public LGFX_Device {};
+#endif
 
 /**
  * @brief
