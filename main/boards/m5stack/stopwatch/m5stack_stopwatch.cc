@@ -1,6 +1,7 @@
 #include "wifi_board.h"
 #include "backlight.h"
 #include "display/lcd_display.h"
+#include "muse_avatar.h"
 #include "esp_lcd_co5300.h"
 #include "codecs/es8311_audio_codec.h"
 #include "application.h"
@@ -34,6 +35,10 @@ static const co5300_lcd_init_cmd_t vendor_specific_init[] = {
 };
 
 class RoundLcdDisplay : public SpiLcdDisplay {
+private:
+    std::unique_ptr<MuseAvatar> muse_avatar_ = nullptr;
+    std::function<void()> touch_cb_ = nullptr;
+
 public:
     static void rounder_event_cb(lv_event_t* e) {
         lv_area_t* area = static_cast<lv_area_t*>(lv_event_get_param(e));
@@ -54,9 +59,42 @@ public:
                     bool swap_xy)
         : SpiLcdDisplay(io_handle, panel_handle, width, height, offset_x, offset_y, mirror_x, mirror_y, swap_xy) {}
 
+    void SetTouchCallback(std::function<void()> cb) {
+        touch_cb_ = std::move(cb);
+        if (muse_avatar_) {
+            muse_avatar_->OnTouch(touch_cb_);
+        }
+    }
+
+    MuseAvatar* GetMuseAvatar() {
+        return muse_avatar_.get();
+    }
+
+    void SetEmotion(const char* emotion) override {
+        SpiLcdDisplay::SetEmotion(emotion);
+        if (muse_avatar_) {
+            muse_avatar_->SetEmotion(emotion);
+        }
+    }
+
     void SetupUI() override {
         SpiLcdDisplay::SetupUI();
         DisplayLockGuard lock(this);
+
+        // Hide default static emoji label/image
+        if (emoji_label_ != nullptr) {
+            lv_obj_add_flag(emoji_label_, LV_OBJ_FLAG_HIDDEN);
+        }
+        if (emoji_image_ != nullptr) {
+            lv_obj_add_flag(emoji_image_, LV_OBJ_FLAG_HIDDEN);
+        }
+
+        // Initialize Meta Muse procedural avatar inside emoji_box_
+        // 256x256 px is optimal for 466x466 round AMOLED display
+        muse_avatar_ = std::make_unique<MuseAvatar>(emoji_box_, 256);
+        if (touch_cb_) {
+            muse_avatar_->OnTouch(touch_cb_);
+        }
 
         // Horizontal inset so labels stay inside the round mask
         lv_obj_set_style_pad_left(status_bar_, LV_HOR_RES * 0.2, 0);
@@ -74,8 +112,6 @@ public:
             lv_obj_align(bottom_bar_, LV_ALIGN_BOTTOM_MID, 0, -DISPLAY_CHAT_BAR_BOTTOM_OFF);
             lv_obj_set_width(chat_message_label_, LV_HOR_RES * 0.75);
         }
-
-        // emoji_box_: keep default LV_ALIGN_CENTER from SpiLcdDisplay::SetupUI()
 
         // Top icons: move the top bar down inside the round display safe area
         if (top_bar_ != nullptr) {
@@ -229,6 +265,11 @@ private:
         display_ = new RoundLcdDisplay(panel_io, panel, DISPLAY_WIDTH, DISPLAY_HEIGHT,
                                        DISPLAY_OFFSET_X, DISPLAY_OFFSET_Y, DISPLAY_MIRROR_X,
                                        DISPLAY_MIRROR_Y, DISPLAY_SWAP_XY);
+        display_->SetTouchCallback([this]() {
+            ioe_.digitalWrite(IOE_PIN_MOTOR, HIGH);
+            vTaskDelay(pdMS_TO_TICKS(40));
+            ioe_.digitalWrite(IOE_PIN_MOTOR, LOW);
+        });
         backlight_ = new StopwatchBacklight(panel_io, display_);
         backlight_->RestoreBrightness();
     }
