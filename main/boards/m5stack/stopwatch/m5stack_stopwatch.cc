@@ -57,7 +57,13 @@ public:
                     bool mirror_x,
                     bool mirror_y,
                     bool swap_xy)
-        : SpiLcdDisplay(io_handle, panel_handle, width, height, offset_x, offset_y, mirror_x, mirror_y, swap_xy) {}
+        : SpiLcdDisplay(io_handle, panel_handle, width, height, offset_x, offset_y, mirror_x, mirror_y, swap_xy) {
+        // 开机硬件刷纯黑，避免任何白屏闪烁
+        std::vector<uint16_t> black_buf(width_, 0x0000);
+        for (int y = 0; y < height_; y++) {
+            esp_lcd_panel_draw_bitmap(panel_, 0, y, width_, y + 1, black_buf.data());
+        }
+    }
 
     void SetTouchCallback(std::function<void()> cb) {
         touch_cb_ = std::move(cb);
@@ -70,9 +76,29 @@ public:
         return muse_avatar_.get();
     }
 
+    void SetStatus(const char* status) override {
+        SpiLcdDisplay::SetStatus(status);
+        if (!muse_avatar_ || !status) return;
+
+        if (std::strcmp(status, Lang::Strings::CONNECTING) == 0 ||
+            strstr(status, "连接") || strstr(status, "思考") || strstr(status, "Think") || strstr(status, "think") ||
+            strstr(status, "CONNECTING") || strstr(status, "Connecting")) {
+            muse_avatar_->SetMode(MUSE_MODE_THINKING);
+        } else if (std::strcmp(status, Lang::Strings::LISTENING) == 0 || strstr(status, "聆听") || strstr(status, "Listen")) {
+            muse_avatar_->SetMode(MUSE_MODE_LISTENING);
+        } else if (std::strcmp(status, Lang::Strings::SPEAKING) == 0 || strstr(status, "说话") || strstr(status, "Speak")) {
+            muse_avatar_->SetMode(MUSE_MODE_SPEAKING);
+        } else if (std::strcmp(status, Lang::Strings::STANDBY) == 0 || strstr(status, "待命") || strstr(status, "Standby")) {
+            muse_avatar_->SetMode(MUSE_MODE_IDLE);
+        }
+    }
+
     void SetEmotion(const char* emotion) override {
         SpiLcdDisplay::SetEmotion(emotion);
-        if (muse_avatar_) {
+        if (!muse_avatar_ || !emotion) return;
+        if (strstr(emotion, "thinking") || strstr(emotion, "confused")) {
+            muse_avatar_->SetMode(MUSE_MODE_THINKING);
+        } else {
             muse_avatar_->SetEmotion(emotion);
         }
     }
@@ -82,31 +108,51 @@ public:
         DisplayLockGuard lock(this);
 
         // 1. 全屏纯黑沉浸化（彻底消除白色大背景与方块边界）
-        lv_obj_set_style_bg_color(lv_screen_active(), lv_color_hex(0x000000), 0);
-        lv_obj_set_style_bg_opa(lv_screen_active(), LV_OPA_COVER, 0);
+        lv_obj_t* scr = lv_screen_active();
+        lv_obj_set_style_bg_color(scr, lv_color_hex(0x000000), 0);
+        lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
+        lv_obj_set_style_text_color(scr, lv_color_hex(0xffffff), 0);
+
+        // 核心关键：彻底将父类创建的全屏白色 container_ 设为全黑，绝无白底白边
+        if (container_ != nullptr) {
+            lv_obj_set_style_bg_color(container_, lv_color_hex(0x000000), 0);
+            lv_obj_set_style_bg_opa(container_, LV_OPA_COVER, 0);
+            lv_obj_set_style_border_width(container_, 0, 0);
+        }
 
         if (status_bar_ != nullptr) {
             lv_obj_set_style_bg_opa(status_bar_, LV_OPA_TRANSP, 0);
         }
         if (bottom_bar_ != nullptr) {
+            lv_obj_set_style_bg_color(bottom_bar_, lv_color_hex(0x000000), 0);
             lv_obj_set_style_bg_opa(bottom_bar_, LV_OPA_TRANSP, 0);
+            lv_obj_set_style_border_width(bottom_bar_, 0, 0);
         }
         if (top_bar_ != nullptr) {
+            lv_obj_set_style_bg_color(top_bar_, lv_color_hex(0x000000), 0);
             lv_obj_set_style_bg_opa(top_bar_, LV_OPA_TRANSP, 0);
+            lv_obj_set_style_border_width(top_bar_, 0, 0);
         }
         if (emoji_box_ != nullptr) {
             lv_obj_set_style_bg_opa(emoji_box_, LV_OPA_TRANSP, 0);
+            lv_obj_set_style_border_width(emoji_box_, 0, 0);
         }
 
-        // 统一文字为纯白与冷光浅灰
+        // 统一所有文字为纯白与冷光浅青
         if (status_label_ != nullptr) {
             lv_obj_set_style_text_color(status_label_, lv_color_hex(0xffffff), 0);
         }
         if (notification_label_ != nullptr) {
-            lv_obj_set_style_text_color(notification_label_, lv_color_hex(0x00ffff), 0);
+            lv_obj_set_style_text_color(notification_label_, lv_color_hex(0x38bdf8), 0);
         }
         if (chat_message_label_ != nullptr) {
-            lv_obj_set_style_text_color(chat_message_label_, lv_color_hex(0xe2e8f0), 0);
+            lv_obj_set_style_text_color(chat_message_label_, lv_color_hex(0xf1f5f9), 0);
+        }
+        if (network_label_ != nullptr) {
+            lv_obj_set_style_text_color(network_label_, lv_color_hex(0xffffff), 0);
+        }
+        if (battery_label_ != nullptr) {
+            lv_obj_set_style_text_color(battery_label_, lv_color_hex(0xffffff), 0);
         }
 
         // 隐藏默认静态文字与图片

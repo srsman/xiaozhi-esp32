@@ -17,6 +17,7 @@ public:
     ~MuseAvatar();
 
     void UpdateDeviceState(DeviceState state);
+    void SetMode(muse_mode_t mode);
     void SetEmotion(const char* emotion);
     void SetAudioLevel(float level);
     void TriggerHappy(float intensity = 1.0f);

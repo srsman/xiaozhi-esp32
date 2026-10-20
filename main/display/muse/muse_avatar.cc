@@ -16,24 +16,26 @@ MuseAvatar::MuseAvatar(lv_obj_t* parent, int size_px, int screen_diameter)
 
     lv_obj_t* root_screen = lv_screen_active();
 
-    // 1. Create Outer Halo / Pulse Ring (直接挂载在主屏幕上，尺寸452px)
-    int ring_d = screen_diameter_ > 20 ? (screen_diameter_ - 14) : 452;
+    // 1. Create Outer Halo / Pulse Ring (置于顶层，确保全屏最外圈醒目可见)
+    int ring_d = screen_diameter_ > 20 ? (screen_diameter_ - 10) : 456;
     ring_obj_ = lv_arc_create(root_screen);
     lv_obj_set_size(ring_obj_, ring_d, ring_d);
     lv_obj_center(ring_obj_);
-    lv_obj_move_background(ring_obj_);
+    lv_obj_move_foreground(ring_obj_);
     lv_arc_set_bg_angles(ring_obj_, 0, 360);
     lv_arc_set_rotation(ring_obj_, 270);
     lv_obj_remove_style(ring_obj_, nullptr, LV_PART_KNOB);
     lv_obj_remove_flag(ring_obj_, LV_OBJ_FLAG_CLICKABLE);
 
-    // Track style
+    // Track style (深黑紫幽暗底轨 6px)
     lv_obj_set_style_arc_width(ring_obj_, 6, LV_PART_MAIN);
-    lv_obj_set_style_arc_color(ring_obj_, lv_color_hex(0x101018), LV_PART_MAIN);
-    // Indicator style
-    lv_obj_set_style_arc_width(ring_obj_, 7, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_color(ring_obj_, lv_color_hex(0x161224), LV_PART_MAIN);
+    lv_obj_set_style_arc_opa(ring_obj_, LV_OPA_COVER, LV_PART_MAIN);
+    // Indicator style (流光脉冲带 8px，两端半圆圆角)
+    lv_obj_set_style_arc_width(ring_obj_, 8, LV_PART_INDICATOR);
     lv_obj_set_style_arc_rounded(ring_obj_, true, LV_PART_INDICATOR);
-    lv_obj_set_style_arc_color(ring_obj_, lv_color_hex(0x5b3fd9), LV_PART_INDICATOR);
+    lv_obj_set_style_arc_color(ring_obj_, lv_color_hex(0xa855f7), LV_PART_INDICATOR);
+    lv_obj_set_style_arc_opa(ring_obj_, LV_OPA_COVER, LV_PART_INDICATOR);
 
     // 2. Allocate frame buffer in SPIRAM for high-res procedural scaling
     size_t buf_bytes = size_px_ * size_px_ * sizeof(uint16_t);
@@ -124,41 +126,67 @@ void MuseAvatar::UpdateRing(float t, float mode_t, float live_level) {
     if (!ring_obj_) return;
 
     if (current_mode_ == MUSE_MODE_THINKING) {
-        // [用户重点需求] 思考中：环形脉冲渐变（流光霓虹跑马脉冲飞速旋转）
-        float rot_speed = 360.0f; // 1秒1整圈
-        int start_angle = static_cast<int>(t * rot_speed) % 360;
-        int end_angle = (start_angle + 75) % 360;
-        lv_arc_set_angles(ring_obj_, start_angle, end_angle);
+        // [用户核心需求] 思考中：环形脉冲渐变（流光霓虹跑马脉冲飞速旋转）
+        int rot = static_cast<int>(t * 420.0f) % 360;
+        lv_arc_set_rotation(ring_obj_, rot);
+        lv_arc_set_angles(ring_obj_, 0, 80);
 
         // 彩虹渐变霓虹流光 (天青 -> 亮紫 -> 暖金)
-        float hue = fmodf(t * 140.0f, 360.0f);
-        lv_color_t pulse_color = lv_color_hsv_to_rgb(static_cast<uint16_t>(hue), 85, 100);
+        float hue = fmodf(t * 180.0f, 360.0f);
+        lv_color_t pulse_color = lv_color_hsv_to_rgb(static_cast<uint16_t>(hue), 90, 100);
         lv_obj_set_style_arc_color(ring_obj_, pulse_color, LV_PART_INDICATOR);
+        lv_obj_set_style_arc_opa(ring_obj_, LV_OPA_COVER, LV_PART_INDICATOR);
     } else if (current_mode_ == MUSE_MODE_LISTENING) {
-        // 聆听中：天青色声波脉动外环
+        // 聆听中：天青色声波能量波纹
+        lv_arc_set_rotation(ring_obj_, 270);
         lv_arc_set_angles(ring_obj_, 0, 360);
-        uint8_t g = static_cast<uint8_t>(200 + live_level * 55);
-        lv_obj_set_style_arc_color(ring_obj_, lv_color_make(60, g, 255), LV_PART_INDICATOR);
+        float pulse = 0.5f + 0.5f * std::sin(t * 6.0f);
+        lv_obj_set_style_arc_color(ring_obj_, lv_color_hex(0x00f0ff), LV_PART_INDICATOR);
+        lv_obj_set_style_arc_opa(ring_obj_, static_cast<lv_opa_t>(180 + 75 * pulse), LV_PART_INDICATOR);
     } else if (current_mode_ == MUSE_MODE_SPEAKING) {
-        // 说话中：橙暖色发声律动
+        // 说话中：暖金粉紫音频律动
+        lv_arc_set_rotation(ring_obj_, 270);
         lv_arc_set_angles(ring_obj_, 0, 360);
         float pulse = 0.5f + 0.5f * std::sin(speech_phase_);
-        lv_color_t speak_color = lv_color_make(255, static_cast<uint8_t>(110 + 90 * pulse), 50);
+        lv_color_t speak_color = lv_color_make(255, static_cast<uint8_t>(120 + 80 * pulse), 60);
         lv_obj_set_style_arc_color(ring_obj_, speak_color, LV_PART_INDICATOR);
+        lv_obj_set_style_arc_opa(ring_obj_, LV_OPA_COVER, LV_PART_INDICATOR);
     } else {
-        // 待机中：深紫色静谧呼吸环
+        // 待机中 / 开机配网：深紫罗兰静谧呼吸光环 (常驻可见)
+        lv_arc_set_rotation(ring_obj_, 270);
         lv_arc_set_angles(ring_obj_, 0, 360);
-        float breath = 0.5f + 0.5f * std::sin(t * 2.0f);
-        uint8_t v = static_cast<uint8_t>(160 + 60 * breath);
-        lv_obj_set_style_arc_color(ring_obj_, lv_color_make(110, 60, v), LV_PART_INDICATOR);
+        float breath = 0.5f + 0.5f * std::sin(t * 2.5f);
+        uint8_t v = static_cast<uint8_t>(150 + 95 * breath);
+        lv_obj_set_style_arc_color(ring_obj_, lv_color_make(150, 70, v), LV_PART_INDICATOR);
+        lv_obj_set_style_arc_opa(ring_obj_, static_cast<lv_opa_t>(180 + 75 * breath), LV_PART_INDICATOR);
+    }
+}
+
+void MuseAvatar::SetMode(muse_mode_t mode) {
+    if (current_mode_ != mode) {
+        current_mode_ = mode;
+        mode_start_us_ = esp_timer_get_time();
     }
 }
 
 void MuseAvatar::RenderTick() {
     if (!frame_buffer_ || !image_obj_) return;
 
-    // Automatically synchronize state with Application instance
-    UpdateDeviceState(Application::GetInstance().GetDeviceState());
+    // Synchronize state with Application instance when not explicitly overridden
+    DeviceState app_state = Application::GetInstance().GetDeviceState();
+    if (app_state == kDeviceStateConnecting) {
+        SetMode(MUSE_MODE_THINKING);
+    } else if (app_state == kDeviceStateListening) {
+        SetMode(MUSE_MODE_LISTENING);
+    } else if (app_state == kDeviceStateSpeaking || app_state == kDeviceStateAudioTesting) {
+        SetMode(MUSE_MODE_SPEAKING);
+    } else if (app_state == kDeviceStateIdle) {
+        if (current_mode_ != MUSE_MODE_THINKING) {
+            SetMode(MUSE_MODE_IDLE);
+        }
+    } else {
+        UpdateDeviceState(app_state);
+    }
 
     int64_t now_us = esp_timer_get_time();
     float t = static_cast<float>(now_us) / 1000000.0f;
