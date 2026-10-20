@@ -15,6 +15,9 @@
 
 static const char* TAG = "WatchApps";
 
+using namespace mooncake;
+using namespace smooth_ui_toolkit;
+
 WatchPageManager& WatchPageManager::GetInstance() {
     static WatchPageManager instance;
     return instance;
@@ -61,12 +64,12 @@ void WatchPageManager::Init(lv_obj_t* muse_screen,
         while (true) {
             GetHAL().feedTheDog();
             if (GetHAL().lvglLock()) {
-                GetMooncake().update();
+                mooncake::GetMooncake().update();
                 GetHAL().lvglUnlock();
             }
             vTaskDelay(pdMS_TO_TICKS(20));
         }
-    }, "mooncake_task", 8192, this, 2, nullptr);
+    }, "mooncake_task", 8192, nullptr, 2, nullptr);
 }
 
 void WatchPageManager::SetImuAccel(float ax, float ay, float az) {
