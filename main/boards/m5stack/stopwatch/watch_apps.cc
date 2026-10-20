@@ -7,6 +7,44 @@
 
 #define TAG "WatchApps"
 
+LV_FONT_DECLARE(font_noto_sans_basic_30_4);
+
+#if defined(LV_FONT_MONTSERRAT_12) && LV_FONT_MONTSERRAT_12
+LV_FONT_DECLARE(lv_font_montserrat_12);
+#else
+#define lv_font_montserrat_12 lv_font_montserrat_14
+#endif
+
+#if defined(LV_FONT_MONTSERRAT_16) && LV_FONT_MONTSERRAT_16
+LV_FONT_DECLARE(lv_font_montserrat_16);
+#else
+#define lv_font_montserrat_16 lv_font_montserrat_14
+#endif
+
+#if defined(LV_FONT_MONTSERRAT_18) && LV_FONT_MONTSERRAT_18
+LV_FONT_DECLARE(lv_font_montserrat_18);
+#else
+#define lv_font_montserrat_18 lv_font_montserrat_14
+#endif
+
+#if defined(LV_FONT_MONTSERRAT_20) && LV_FONT_MONTSERRAT_20
+LV_FONT_DECLARE(lv_font_montserrat_20);
+#else
+#define lv_font_montserrat_20 lv_font_montserrat_14
+#endif
+
+#if defined(LV_FONT_MONTSERRAT_40) && LV_FONT_MONTSERRAT_40
+LV_FONT_DECLARE(lv_font_montserrat_40);
+#else
+#define lv_font_montserrat_40 font_noto_sans_basic_30_4
+#endif
+
+#if defined(LV_FONT_MONTSERRAT_48) && LV_FONT_MONTSERRAT_48
+LV_FONT_DECLARE(lv_font_montserrat_48);
+#else
+#define lv_font_montserrat_48 font_noto_sans_basic_30_4
+#endif
+
 WatchPageManager& WatchPageManager::GetInstance() {
     static WatchPageManager instance;
     return instance;
