@@ -6,6 +6,25 @@
 #pragma once
 #include <lvgl.h>
 
+#if !defined(LV_FONT_MONTSERRAT_36) || !LV_FONT_MONTSERRAT_36
+#define lv_font_montserrat_36 lv_font_montserrat_32
+#endif
+#if !defined(LV_FONT_MONTSERRAT_28) || !LV_FONT_MONTSERRAT_28
+#define lv_font_montserrat_28 lv_font_montserrat_20
+#endif
+#if !defined(LV_FONT_MONTSERRAT_24) || !LV_FONT_MONTSERRAT_24
+#define lv_font_montserrat_24 lv_font_montserrat_20
+#endif
+#if !defined(LV_FONT_MONTSERRAT_22) || !LV_FONT_MONTSERRAT_22
+#define lv_font_montserrat_22 lv_font_montserrat_20
+#endif
+#if !defined(LV_FONT_MONTSERRAT_14) || !LV_FONT_MONTSERRAT_14
+#define lv_font_montserrat_14 lv_font_montserrat_16
+#endif
+#if !defined(LV_FONT_MONTSERRAT_10) || !LV_FONT_MONTSERRAT_10
+#define lv_font_montserrat_10 lv_font_montserrat_12
+#endif
+
 LV_FONT_DECLARE(MontserratSemiBold26);
 LV_FONT_DECLARE(CommissionerMedium64);
 LV_FONT_DECLARE(CommissionerMedium108);

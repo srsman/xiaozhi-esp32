@@ -184,7 +184,7 @@ void AlarmListView::createAlarmRow(int y, int alarmId, const model::AlarmClock::
 
     row->timeLabel = std::make_unique<Label>(row->button->get());
     row->timeLabel->setText(format_alarm_time(alarm.time()));
-    row->timeLabel->setTextFont(&lv_font_montserrat_36);
+    row->timeLabel->setTextFont(&lv_font_montserrat_32);
     row->timeLabel->setTextColor(lv_color_hex(_label_color));
     row->timeLabel->align(LV_ALIGN_LEFT_MID, 49, 0);
 
