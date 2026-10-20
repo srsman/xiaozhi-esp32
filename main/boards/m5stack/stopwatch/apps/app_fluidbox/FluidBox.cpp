@@ -15,7 +15,9 @@
 #include <esp_timer.h>
 #include <stdio.h>
 #include <math.h>
+#include <cmath>
 #include <string.h>
+using std::isfinite;
 
 namespace cfg = fluidbox_config;
 
@@ -170,8 +172,8 @@ void FluidBox::reset() {
 void FluidBox::setImuSample(float ax, float ay, float az,
                             float gx, float gy, float gz,
                             float sampleDtSeconds) {
-  if (!isfinite(ax) || !isfinite(ay) || !isfinite(az) ||
-      !isfinite(gx) || !isfinite(gy) || !isfinite(gz)) {
+  if (!std::isfinite(ax) || !std::isfinite(ay) || !std::isfinite(az) ||
+      !std::isfinite(gx) || !std::isfinite(gy) || !std::isfinite(gz)) {
     return;
   }
 
@@ -243,7 +245,7 @@ void FluidBox::setImuSample(float ax, float ay, float az,
 }
 
 bool FluidBox::applyTouchImpulse(float screenX, float screenY) {
-  if (!isfinite(screenX) || !isfinite(screenY) ||
+  if (!std::isfinite(screenX) || !std::isfinite(screenY) ||
       cfg::kTouchForce <= 0.0f || cfg::kTouchRadius <= 0.0f) {
     return false;
   }
@@ -615,8 +617,8 @@ void FluidBox::resolveWalls() {
 bool FluidBox::stateIsFinite() const {
   for (size_t i = 0; i < cfg::kParticleCount; ++i) {
     const Particle& p = particles_[i];
-    if (!isfinite(p.position.x) || !isfinite(p.position.y) || !isfinite(p.position.z) ||
-        !isfinite(p.velocity.x) || !isfinite(p.velocity.y) || !isfinite(p.velocity.z)) {
+    if (!std::isfinite(p.position.x) || !std::isfinite(p.position.y) || !std::isfinite(p.position.z) ||
+        !std::isfinite(p.velocity.x) || !std::isfinite(p.velocity.y) || !std::isfinite(p.velocity.z)) {
       return false;
     }
   }
@@ -625,7 +627,7 @@ bool FluidBox::stateIsFinite() const {
 
 void FluidBox::step(float realDtSeconds) {
   const uint32_t startedAt = fluidboxMicros();
-  if (!isfinite(realDtSeconds) || realDtSeconds <= 0.0f) {
+  if (!std::isfinite(realDtSeconds) || realDtSeconds <= 0.0f) {
     return;
   }
 
