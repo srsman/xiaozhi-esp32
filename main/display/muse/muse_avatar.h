@@ -13,7 +13,7 @@ class MuseAvatar {
 public:
     using TouchCallback = std::function<void()>;
 
-    explicit MuseAvatar(lv_obj_t* parent, int size_px = 256);
+    explicit MuseAvatar(lv_obj_t* parent, int size_px = 280, int screen_diameter = 466);
     ~MuseAvatar();
 
     void UpdateDeviceState(DeviceState state);
@@ -24,17 +24,21 @@ public:
     void OnTouch(TouchCallback cb);
 
     inline lv_obj_t* GetObject() const { return image_obj_; }
+    inline lv_obj_t* GetRingObject() const { return ring_obj_; }
     inline muse_mode_t GetCurrentMode() const { return current_mode_; }
 
 private:
     static void TimerCallback(lv_timer_t* timer);
     static void TouchEventCallback(lv_event_t* e);
     void RenderTick();
+    void UpdateRing(float t, float mode_t, float live_level);
 
     lv_obj_t* parent_ = nullptr;
     lv_obj_t* image_obj_ = nullptr;
+    lv_obj_t* ring_obj_ = nullptr;
     lv_timer_t* render_timer_ = nullptr;
-    int size_px_ = 256;
+    int size_px_ = 280;
+    int screen_diameter_ = 466;
 
     uint16_t* frame_buffer_ = nullptr;
     lv_image_dsc_t image_dsc_;

@@ -81,7 +81,35 @@ public:
         SpiLcdDisplay::SetupUI();
         DisplayLockGuard lock(this);
 
-        // Hide default static emoji label/image
+        // 1. 全屏纯黑沉浸化（彻底消除白色大背景与方块边界）
+        lv_obj_set_style_bg_color(lv_screen_active(), lv_color_hex(0x000000), 0);
+        lv_obj_set_style_bg_opa(lv_screen_active(), LV_OPA_COVER, 0);
+
+        if (status_bar_ != nullptr) {
+            lv_obj_set_style_bg_opa(status_bar_, LV_OPA_TRANSP, 0);
+        }
+        if (bottom_bar_ != nullptr) {
+            lv_obj_set_style_bg_opa(bottom_bar_, LV_OPA_TRANSP, 0);
+        }
+        if (top_bar_ != nullptr) {
+            lv_obj_set_style_bg_opa(top_bar_, LV_OPA_TRANSP, 0);
+        }
+        if (emoji_box_ != nullptr) {
+            lv_obj_set_style_bg_opa(emoji_box_, LV_OPA_TRANSP, 0);
+        }
+
+        // 统一文字为纯白与冷光浅灰
+        if (status_label_ != nullptr) {
+            lv_obj_set_style_text_color(status_label_, lv_color_hex(0xffffff), 0);
+        }
+        if (notification_label_ != nullptr) {
+            lv_obj_set_style_text_color(notification_label_, lv_color_hex(0x00ffff), 0);
+        }
+        if (chat_message_label_ != nullptr) {
+            lv_obj_set_style_text_color(chat_message_label_, lv_color_hex(0xe2e8f0), 0);
+        }
+
+        // 隐藏默认静态文字与图片
         if (emoji_label_ != nullptr) {
             lv_obj_add_flag(emoji_label_, LV_OBJ_FLAG_HIDDEN);
         }
@@ -89,31 +117,26 @@ public:
             lv_obj_add_flag(emoji_image_, LV_OBJ_FLAG_HIDDEN);
         }
 
-        // Initialize Meta Muse procedural avatar inside emoji_box_
-        // 256x256 px is optimal for 466x466 round AMOLED display
-        muse_avatar_ = std::make_unique<MuseAvatar>(emoji_box_, 256);
+        // 2. 初始化 Meta Muse 核心 Avatar 与环形脉冲渐变外环 (280px 居中 + 466px 圆屏外径)
+        muse_avatar_ = std::make_unique<MuseAvatar>(emoji_box_, 280, DISPLAY_WIDTH);
         if (touch_cb_) {
             muse_avatar_->OnTouch(touch_cb_);
         }
 
-        // Horizontal inset so labels stay inside the round mask
+        // 3. 圆屏文字布局适配
         lv_obj_set_style_pad_left(status_bar_, LV_HOR_RES * 0.2, 0);
         lv_obj_set_style_pad_right(status_bar_, LV_HOR_RES * 0.2, 0);
-
-        // Status bar: upper half, below top icon bar (not at screen bottom)
         lv_obj_align(status_bar_, LV_ALIGN_TOP_MID, 0, DISPLAY_STATUS_BAR_TOP_OFF);
         lv_obj_set_width(status_label_, LV_HOR_RES * 0.6);
         lv_obj_set_width(notification_label_, LV_HOR_RES * 0.6);
         lv_obj_align(status_label_, LV_ALIGN_CENTER, 0, 0);
         lv_obj_align(notification_label_, LV_ALIGN_CENTER, 0, 0);
 
-        // Chat/subtitle text: a bit higher, away from bottom arc
         if (bottom_bar_ != nullptr) {
             lv_obj_align(bottom_bar_, LV_ALIGN_BOTTOM_MID, 0, -DISPLAY_CHAT_BAR_BOTTOM_OFF);
             lv_obj_set_width(chat_message_label_, LV_HOR_RES * 0.75);
         }
 
-        // Top icons: move the top bar down inside the round display safe area
         if (top_bar_ != nullptr) {
             lv_obj_align(top_bar_, LV_ALIGN_TOP_MID, 0, DISPLAY_ROUND_EDGE_INSET / 2);
             lv_obj_set_style_pad_top(top_bar_, DISPLAY_ROUND_EDGE_INSET / 4, 0);
@@ -204,10 +227,58 @@ private:
         ioe_.digitalWrite(IOE_PIN_PA_EN, HIGH);
 
         ioe_.pinMode(IOE_PIN_MOTOR, OUTPUT);
+        ioe_.pinMode(IOE_PIN_MOTOR, OUTPUT);
         ioe_.setDriveMode(IOE_PIN_MOTOR, M5IOE1_DRIVE_PUSHPULL);
         ioe_.digitalWrite(IOE_PIN_MOTOR, LOW);
 
+        // Power on and release Touch controller reset (CST820B)
+        ioe_.pinMode(IOE_PIN_TOUCH_RST, OUTPUT);
+        ioe_.setDriveMode(IOE_PIN_TOUCH_RST, M5IOE1_DRIVE_PUSHPULL);
+        ioe_.digitalWrite(IOE_PIN_TOUCH_RST, LOW);
+        vTaskDelay(pdMS_TO_TICKS(10));
+        ioe_.digitalWrite(IOE_PIN_TOUCH_RST, HIGH);
+        vTaskDelay(pdMS_TO_TICKS(50));
+
         vTaskDelay(pdMS_TO_TICKS(100));
+    }
+
+    i2c_master_dev_handle_t touch_dev_ = nullptr;
+    lv_indev_t* touch_indev_ = nullptr;
+
+    void InitializeTouch() {
+        i2c_device_config_t dev_cfg = {
+            .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+            .device_address = 0x15, // CST820B I2C address
+            .scl_speed_hz = 400000,
+        };
+        esp_err_t err = i2c_master_bus_add_device(i2c_bus_, &dev_cfg, &touch_dev_);
+        if (err != ESP_OK) {
+            ESP_LOGW(TAG, "Touch device add failed: %s", esp_err_to_name(err));
+            return;
+        }
+
+        touch_indev_ = lv_indev_create();
+        lv_indev_set_type(touch_indev_, LV_INDEV_TYPE_POINTER);
+        lv_indev_set_user_data(touch_indev_, this);
+        lv_indev_set_read_cb(touch_indev_, [](lv_indev_t* indev, lv_indev_data_t* data) {
+            auto* self = static_cast<M5StackStopwatchBoard*>(lv_indev_get_user_data(indev));
+            if (self && self->touch_dev_) {
+                uint8_t reg = 0x01;
+                uint8_t read_buf[6] = {0};
+                esp_err_t r_err = i2c_master_transmit_receive(self->touch_dev_, &reg, 1, read_buf, sizeof(read_buf), 20);
+                if (r_err == ESP_OK && read_buf[1] > 0) { // points count > 0 at reg 0x02
+                    uint16_t x = ((read_buf[2] & 0x0F) << 8) | read_buf[3];
+                    uint16_t y = ((read_buf[4] & 0x0F) << 8) | read_buf[5];
+                    if (x < DISPLAY_WIDTH && y < DISPLAY_HEIGHT) {
+                        data->point.x = x;
+                        data->point.y = y;
+                        data->state = LV_INDEV_STATE_PRESSED;
+                        return;
+                    }
+                }
+            }
+            data->state = LV_INDEV_STATE_RELEASED;
+        });
     }
 
     void InitializeSpi() {
@@ -267,7 +338,7 @@ private:
                                        DISPLAY_MIRROR_Y, DISPLAY_SWAP_XY);
         display_->SetTouchCallback([this]() {
             ioe_.digitalWrite(IOE_PIN_MOTOR, HIGH);
-            vTaskDelay(pdMS_TO_TICKS(40));
+            vTaskDelay(pdMS_TO_TICKS(50));
             ioe_.digitalWrite(IOE_PIN_MOTOR, LOW);
         });
         backlight_ = new StopwatchBacklight(panel_io, display_);
@@ -285,8 +356,18 @@ private:
             app.ToggleChatState();
         });
 
-        // Button2: volume 0 -> 10 -> ... -> 100 -> 0
+        // Button2: 待机时触发抚摸互动，对话时调音量
         button2_.OnClick([this]() {
+            auto& app = Application::GetInstance();
+            if (app.GetDeviceState() == kDeviceStateIdle) {
+                if (display_ && display_->GetMuseAvatar()) {
+                    display_->GetMuseAvatar()->TriggerHappy(1.0f);
+                    ioe_.digitalWrite(IOE_PIN_MOTOR, HIGH);
+                    vTaskDelay(pdMS_TO_TICKS(50));
+                    ioe_.digitalWrite(IOE_PIN_MOTOR, LOW);
+                    return;
+                }
+            }
             auto* codec = GetAudioCodec();
             int volume = codec->output_volume() + 10;
             if (volume > 100) {
@@ -305,6 +386,7 @@ public:
           display_(nullptr),
           backlight_(nullptr) {
         InitializeI2c();
+        InitializeTouch();
         InitializeSpi();
         InitializeDisplay();
         InitializeButtons();
