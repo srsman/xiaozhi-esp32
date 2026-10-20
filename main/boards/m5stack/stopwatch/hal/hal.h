@@ -7,9 +7,19 @@
 #include "utils/button/Button_Class.hpp"
 #include <apps/common/common.h>
 #include <memory>
-#include <cstdint>
 #include <string>
+#include <cstdint>
 #include <lvgl.h>
+
+#if !defined(LV_FONT_MONTSERRAT_28) || !LV_FONT_MONTSERRAT_28
+#define lv_font_montserrat_28 lv_font_montserrat_20
+#endif
+#if !defined(LV_FONT_MONTSERRAT_24) || !LV_FONT_MONTSERRAT_24
+#define lv_font_montserrat_24 lv_font_montserrat_20
+#endif
+#if !defined(LV_FONT_MONTSERRAT_14) || !LV_FONT_MONTSERRAT_14
+#define lv_font_montserrat_14 lv_font_montserrat_16
+#endif
 #include <functional>
 #include <smooth_ui_toolkit.hpp>
 #include <uitk/short_namespace.hpp>
