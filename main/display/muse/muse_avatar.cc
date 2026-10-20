@@ -16,21 +16,22 @@ MuseAvatar::MuseAvatar(lv_obj_t* parent, int size_px, int screen_diameter)
 
     lv_obj_t* root_screen = lv_screen_active();
 
-    // 1. Create Outer Halo / Pulse Ring (贴合圆屏边缘的流光脉冲外环)
+    // 1. Create Outer Halo / Pulse Ring (直接挂载在主屏幕上，尺寸452px)
     int ring_d = screen_diameter_ > 20 ? (screen_diameter_ - 14) : 452;
-    ring_obj_ = lv_arc_create(parent_ ? parent_ : root_screen);
+    ring_obj_ = lv_arc_create(root_screen);
     lv_obj_set_size(ring_obj_, ring_d, ring_d);
     lv_obj_center(ring_obj_);
+    lv_obj_move_background(ring_obj_);
     lv_arc_set_bg_angles(ring_obj_, 0, 360);
     lv_arc_set_rotation(ring_obj_, 270);
     lv_obj_remove_style(ring_obj_, nullptr, LV_PART_KNOB);
     lv_obj_remove_flag(ring_obj_, LV_OBJ_FLAG_CLICKABLE);
 
     // Track style
-    lv_obj_set_style_arc_width(ring_obj_, 5, LV_PART_MAIN);
-    lv_obj_set_style_arc_color(ring_obj_, lv_color_hex(0x12121e), LV_PART_MAIN);
+    lv_obj_set_style_arc_width(ring_obj_, 6, LV_PART_MAIN);
+    lv_obj_set_style_arc_color(ring_obj_, lv_color_hex(0x101018), LV_PART_MAIN);
     // Indicator style
-    lv_obj_set_style_arc_width(ring_obj_, 6, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_width(ring_obj_, 7, LV_PART_INDICATOR);
     lv_obj_set_style_arc_rounded(ring_obj_, true, LV_PART_INDICATOR);
     lv_obj_set_style_arc_color(ring_obj_, lv_color_hex(0x5b3fd9), LV_PART_INDICATOR);
 

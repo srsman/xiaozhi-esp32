@@ -246,10 +246,11 @@ private:
     lv_indev_t* touch_indev_ = nullptr;
 
     void InitializeTouch() {
+        if (!i2c_bus_ || !display_) return;
         i2c_device_config_t dev_cfg = {
             .dev_addr_length = I2C_ADDR_BIT_LEN_7,
             .device_address = 0x15, // CST820B I2C address
-            .scl_speed_hz = 400000,
+            .scl_speed_hz = 100000,
         };
         esp_err_t err = i2c_master_bus_add_device(i2c_bus_, &dev_cfg, &touch_dev_);
         if (err != ESP_OK) {
@@ -257,27 +258,28 @@ private:
             return;
         }
 
+        DisplayLockGuard lock(display_);
         touch_indev_ = lv_indev_create();
+        if (!touch_indev_) return;
         lv_indev_set_type(touch_indev_, LV_INDEV_TYPE_POINTER);
         lv_indev_set_user_data(touch_indev_, this);
         lv_indev_set_read_cb(touch_indev_, [](lv_indev_t* indev, lv_indev_data_t* data) {
+            data->state = LV_INDEV_STATE_RELEASED;
             auto* self = static_cast<M5StackStopwatchBoard*>(lv_indev_get_user_data(indev));
-            if (self && self->touch_dev_) {
-                uint8_t reg = 0x01;
-                uint8_t read_buf[6] = {0};
-                esp_err_t r_err = i2c_master_transmit_receive(self->touch_dev_, &reg, 1, read_buf, sizeof(read_buf), 20);
-                if (r_err == ESP_OK && read_buf[1] > 0) { // points count > 0 at reg 0x02
-                    uint16_t x = ((read_buf[2] & 0x0F) << 8) | read_buf[3];
-                    uint16_t y = ((read_buf[4] & 0x0F) << 8) | read_buf[5];
-                    if (x < DISPLAY_WIDTH && y < DISPLAY_HEIGHT) {
-                        data->point.x = x;
-                        data->point.y = y;
-                        data->state = LV_INDEV_STATE_PRESSED;
-                        return;
-                    }
+            if (!self || !self->touch_dev_) return;
+
+            uint8_t reg = 0x01;
+            uint8_t read_buf[6] = {0};
+            esp_err_t r_err = i2c_master_transmit_receive(self->touch_dev_, &reg, 1, read_buf, sizeof(read_buf), 10);
+            if (r_err == ESP_OK && read_buf[1] > 0) { // points count > 0 at reg 0x02
+                uint16_t x = ((read_buf[2] & 0x0F) << 8) | read_buf[3];
+                uint16_t y = ((read_buf[4] & 0x0F) << 8) | read_buf[5];
+                if (x < DISPLAY_WIDTH && y < DISPLAY_HEIGHT) {
+                    data->point.x = x;
+                    data->point.y = y;
+                    data->state = LV_INDEV_STATE_PRESSED;
                 }
             }
-            data->state = LV_INDEV_STATE_RELEASED;
         });
     }
 
@@ -386,9 +388,9 @@ public:
           display_(nullptr),
           backlight_(nullptr) {
         InitializeI2c();
-        InitializeTouch();
         InitializeSpi();
         InitializeDisplay();
+        InitializeTouch();
         InitializeButtons();
     }
 
