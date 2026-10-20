@@ -641,6 +641,53 @@ private:
             codec->SetOutputVolume(volume);
             GetDisplay()->ShowNotification(std::string(Lang::Strings::VOLUME) + ":" + std::to_string(volume) + "%");
         });
+
+        // Button2 长按：触发截图并输出至串口
+        button2_.OnLongPress([this]() {
+            TriggerScreenshot();
+        });
+    }
+
+    void TriggerScreenshot() {
+        if (!display_) return;
+        ESP_LOGI(TAG, "Capturing display snapshot...");
+        std::string jpeg;
+        if (display_->SnapshotToJpeg(jpeg, 90)) {
+            printf("\n===BEGIN_JPEG:%d===\n", (int)jpeg.size());
+            static const char b64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+            const uint8_t* p = (const uint8_t*)jpeg.data();
+            size_t len = jpeg.size();
+            for (size_t i = 0; i < len; i += 3) {
+                uint32_t val = (p[i] << 16) | ((i + 1 < len ? p[i+1] : 0) << 8) | (i + 2 < len ? p[i+2] : 0);
+                putchar(b64[(val >> 18) & 0x3F]);
+                putchar(b64[(val >> 12) & 0x3F]);
+                putchar((i + 1 < len) ? b64[(val >> 6) & 0x3F] : '=');
+                putchar((i + 2 < len) ? b64[val & 0x3F] : '=');
+                if ((i / 3) % 19 == 18) putchar('\n');
+            }
+            printf("\n===END_JPEG===\n");
+            fflush(stdout);
+            ioe_.digitalWrite(IOE_PIN_MOTOR, HIGH);
+            vTaskDelay(pdMS_TO_TICKS(40));
+            ioe_.digitalWrite(IOE_PIN_MOTOR, LOW);
+        } else {
+            ESP_LOGE(TAG, "SnapshotToJpeg failed");
+        }
+    }
+
+    void InitializeScreenshotTask() {
+        xTaskCreate([](void* arg) {
+            auto* self = static_cast<M5StackStopwatchBoard*>(arg);
+            char line[64];
+            while (true) {
+                if (fgets(line, sizeof(line), stdin)) {
+                    if (strstr(line, "screenshot") || strstr(line, "capture")) {
+                        self->TriggerScreenshot();
+                    }
+                }
+                vTaskDelay(pdMS_TO_TICKS(100));
+            }
+        }, "screenshot_task", 4096, this, 1, nullptr);
     }
 
 public:
@@ -657,6 +704,7 @@ public:
         InitializeTouch();
         InitializeButtons();
         InitializeImu();
+        InitializeScreenshotTask();
 
         if (display_) {
             DisplayLockGuard lock(display_);
