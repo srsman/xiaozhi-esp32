@@ -461,6 +461,14 @@ private:
                             }
                         }
                     }
+
+                    // Feed IMU acceleration to WatchPageManager to drive FluidBox
+                    WatchPageManager::GetInstance().SetImuAccel(
+                        (float)cur_x / 16384.0f * 9.8f,
+                        (float)cur_y / 16384.0f * 9.8f,
+                        (float)cur_z / 16384.0f * 9.8f
+                    );
+
                     prev_x = cur_x;
                     prev_y = cur_y;
                     prev_z = cur_z;
@@ -656,6 +664,13 @@ public:
                     bool chg = false, dis = false;
                     GetBatteryLevel(lvl, chg, dis);
                     return lvl;
+                },
+                [this](uint8_t br) {
+                    if (backlight_) backlight_->SetBrightness(br);
+                },
+                [this](uint8_t vol) {
+                    auto* codec = GetAudioCodec();
+                    if (codec) codec->SetOutputVolume(vol);
                 }
             );
         }
