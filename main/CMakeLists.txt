@@ -236,6 +236,28 @@ elseif(CONFIG_BOARD_TYPE_M5STACK_STOPWATCH)
     set(BUILTIN_TEXT_FONT font_noto_sans_basic_30_4)
     set(BUILTIN_ICON_FONT font_material_symbols_30_4)
     set(DEFAULT_EMOJI_COLLECTION noto-color-emoji_64)
+    file(GLOB_RECURSE STOPWATCH_EXTRA_SRCS
+        ${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/stopwatch/assets/*.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/stopwatch/apps/*.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/stopwatch/apps/*.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/stopwatch/apps/*.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/stopwatch/hal/*.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/stopwatch/hal/*.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/stopwatch/hal/utils/button/*.cpp
+    )
+    list(APPEND SOURCES ${STOPWATCH_EXTRA_SRCS})
+    list(APPEND INCLUDE_DIRS
+        ${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/stopwatch
+        ${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/stopwatch/hal
+        ${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/stopwatch/hal/fmt
+        ${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/stopwatch/hal/utils/button
+        ${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/stopwatch/assets
+        ${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/stopwatch/apps
+        ${PROJECT_DIR}/components/smooth_ui_toolkit/src
+        ${PROJECT_DIR}/components/smooth_ui_toolkit/src/lvgl
+        ${PROJECT_DIR}/components/mooncake/src
+        ${PROJECT_DIR}/components/mooncake_log/src
+    )
 elseif(CONFIG_BOARD_TYPE_M5STACK_CORE_P4)
     set(BOARD_DIR "m5stack/corep4")
     set(BUILTIN_TEXT_FONT font_noto_sans_basic_30_4)
@@ -1112,6 +1134,9 @@ if(CONFIG_BOARD_TYPE_ESP_SPOT_S3 OR CONFIG_BOARD_TYPE_ESP_SPOT_C5 OR CONFIG_BOAR
     list(APPEND MAIN_PRIV_REQUIRES_EXTRA
         espressif__bmi270_sensor
         i2c_bus
+        mooncake
+        mooncake_log
+        smooth_ui_toolkit
     )
 endif()
 if(CONFIG_BOARD_TYPE_ESP_VOCAT AND IDF_VERSION_MAJOR LESS 6)

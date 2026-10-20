@@ -19,6 +19,17 @@
 #include "i2c_bus.h"
 #include "bmi270_api.h"
 
+namespace HalBridgeHooks {
+    void SetVibrateCallback(void (*fn)(uint16_t));
+    void SetImuCallback(void (*fn)(float&, float&, float&, float&, float&, float&));
+    void SetGetTimeCallback(void (*fn)(int&, int&, int&, int&, int&, int&));
+    void SetSetTimeCallback(void (*fn)(int, int, int, int, int, int));
+    void SetBrightnessCallbacks(void (*s_fn)(int), int (*g_fn)());
+    void SetVolumeCallbacks(void (*s_fn)(int), int (*g_fn)());
+    void SetBatteryCallbacks(int (*b_fn)(), bool (*c_fn)());
+    void SetLvglLockCallbacks(bool (*l_fn)(), void (*u_fn)());
+}
+
 #define TAG "M5StackStopwatch"
 #define LCD_OPCODE_WRITE_CMD (0x02ULL)
 
@@ -705,6 +716,67 @@ public:
         InitializeButtons();
         InitializeImu();
         InitializeScreenshotTask();
+
+        static M5StackStopwatchBoard* s_self = this;
+        s_self = this;
+        HalBridgeHooks::SetVibrateCallback([](uint16_t ms) {
+            if (s_self && ms > 0) {
+                s_self->ioe_.digitalWrite(IOE_PIN_MOTOR, HIGH);
+                vTaskDelay(pdMS_TO_TICKS(ms));
+                s_self->ioe_.digitalWrite(IOE_PIN_MOTOR, LOW);
+            }
+        });
+        HalBridgeHooks::SetImuCallback([](float& ax, float& ay, float& az, float& gx, float& gy, float& gz) {
+            if (s_self && s_self->bmi270_handle_) {
+                bmi270_sensor_data_t acc, gyr;
+                if (bmi270_sensor_get_accel(s_self->bmi270_handle_, &acc) == ESP_OK) {
+                    ax = acc.x; ay = acc.y; az = acc.z;
+                }
+                if (bmi270_sensor_get_gyro(s_self->bmi270_handle_, &gyr) == ESP_OK) {
+                    gx = gyr.x; gy = gyr.y; gz = gyr.z;
+                }
+            }
+        });
+        HalBridgeHooks::SetGetTimeCallback([](int& y, int& m, int& d, int& h, int& min, int& s) {
+            if (s_self && s_self->rx8130_.IsInitialized()) {
+                rx8130_time_t t;
+                if (s_self->rx8130_.GetTime(&t)) {
+                    y = 2000 + t.year; m = t.month; d = t.day;
+                    h = t.hour; min = t.minute; s = t.second;
+                    return;
+                }
+            }
+            time_t now = time(nullptr);
+            struct tm tm_info;
+            localtime_r(&now, &tm_info);
+            y = tm_info.tm_year + 1900; m = tm_info.tm_mon + 1; d = tm_info.tm_mday;
+            h = tm_info.tm_hour; min = tm_info.tm_min; s = tm_info.tm_sec;
+        });
+        HalBridgeHooks::SetSetTimeCallback([](int y, int m, int d, int h, int min, int s) {
+            if (s_self && s_self->rx8130_.IsInitialized()) {
+                rx8130_time_t t;
+                t.year = (y >= 2000) ? (y - 2000) : y;
+                t.month = m; t.day = d;
+                t.hour = h; t.minute = min; t.second = s;
+                s_self->rx8130_.SetTime(&t);
+            }
+        });
+        HalBridgeHooks::SetBrightnessCallbacks(
+            [](int b) { if (s_self && s_self->backlight_) s_self->backlight_->SetBrightness(b); },
+            []() -> int { return (s_self && s_self->backlight_) ? s_self->backlight_->brightness() : 80; }
+        );
+        HalBridgeHooks::SetVolumeCallbacks(
+            [](int v) { if (s_self) { auto* c = s_self->GetAudioCodec(); if (c) c->SetOutputVolume(v); } },
+            []() -> int { if (s_self) { auto* c = s_self->GetAudioCodec(); return c ? c->output_volume() : 80; } return 80; }
+        );
+        HalBridgeHooks::SetBatteryCallbacks(
+            []() -> int { if (s_self) { int l = 100; bool c = false, d = false; s_self->GetBatteryLevel(l, c, d); return l; } return 100; },
+            []() -> bool { if (s_self) { int l = 100; bool c = false, d = false; s_self->GetBatteryLevel(l, c, d); return c; } return false; }
+        );
+        HalBridgeHooks::SetLvglLockCallbacks(
+            []() -> bool { return (s_self && s_self->display_) ? s_self->display_->Lock(1000) : true; },
+            []() { if (s_self && s_self->display_) s_self->display_->Unlock(); }
+        );
 
         if (display_) {
             DisplayLockGuard lock(display_);

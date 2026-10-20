@@ -1,5 +1,8 @@
 tmp/
-components/
+components/*
+!components/smooth_ui_toolkit/
+!components/mooncake/
+!components/mooncake_log/
 managed_components/
 build/
 dist/
