@@ -7,7 +7,6 @@
 #include <smooth_lvgl.hpp>
 #include <uitk/short_namespace.hpp>
 #include <memory>
-#include "lgfx/utility/lgfx_qrcode.h"
 
 namespace view {
 
