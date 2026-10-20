@@ -3,7 +3,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 # Add this line to disable the specific warning
-add_compile_options(-Wno-missing-field-initializers)
+add_compile_options(-Wno-missing-field-initializers -Wno-deprecated-enum-enum-conversion)
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 # "Trim" the build. Include the minimal set of components, main, and anything it depends on.
