@@ -728,13 +728,15 @@ public:
             }
         });
         HalBridgeHooks::SetImuCallback([](float& ax, float& ay, float& az, float& gx, float& gy, float& gz) {
-            if (s_self && s_self->bmi270_handle_) {
-                bmi270_sensor_data_t acc, gyr;
-                if (bmi270_sensor_get_accel(s_self->bmi270_handle_, &acc) == ESP_OK) {
-                    ax = acc.x; ay = acc.y; az = acc.z;
-                }
-                if (bmi270_sensor_get_gyro(s_self->bmi270_handle_, &gyr) == ESP_OK) {
-                    gx = gyr.x; gy = gyr.y; gz = gyr.z;
+            if (s_self && s_self->bmi_handle_) {
+                struct bmi2_sens_data sens_data;
+                if (bmi2_get_sensor_data(&sens_data, s_self->bmi_handle_) == BMI2_OK) {
+                    ax = (float)sens_data.acc.x / 16384.0f;
+                    ay = (float)sens_data.acc.y / 16384.0f;
+                    az = (float)sens_data.acc.z / 16384.0f;
+                    gx = (float)sens_data.gyr.x / 16.4f;
+                    gy = (float)sens_data.gyr.y / 16.4f;
+                    gz = (float)sens_data.gyr.z / 16.4f;
                 }
             }
         });
