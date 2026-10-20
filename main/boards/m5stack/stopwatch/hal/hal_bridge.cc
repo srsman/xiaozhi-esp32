@@ -7,6 +7,7 @@
 #include <esp_timer.h>
 #include <esp_system.h>
 #include <esp_log.h>
+#include <esp_mac.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <sys/time.h>
@@ -63,9 +64,6 @@ namespace HalBridgeHooks {
 
 void Hal::init() {
     ESP_LOGI(TAG, "Hal init");
-    btnA.begin();
-    btnB.begin();
-    btnPwr.begin();
 }
 
 void Hal::delay(std::uint32_t ms) {
