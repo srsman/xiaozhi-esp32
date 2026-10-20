@@ -16,6 +16,8 @@
 #include <driver/i2c_master.h>
 #include <driver/spi_master.h>
 #include <wifi_manager.h>
+#include "i2c_bus.h"
+#include "bmi270_api.h"
 
 #define TAG "M5StackStopwatch"
 #define LCD_OPCODE_WRITE_CMD (0x02ULL)
@@ -327,7 +329,8 @@ private:
 
 class M5StackStopwatchBoard : public WifiBoard {
 private:
-    i2c_master_bus_handle_t i2c_bus_;
+    i2c_bus_handle_t shared_i2c_bus_ = nullptr;
+    i2c_master_bus_handle_t i2c_bus_ = nullptr;
     M5PM1 pmic_;
     M5IOE1 ioe_;
     Button button1_;
@@ -336,17 +339,23 @@ private:
     StopwatchBacklight* backlight_;
 
     void InitializeI2c() {
-        i2c_master_bus_config_t i2c_bus_cfg = {
-            .i2c_port = I2C_NUM_0,
+        i2c_config_t i2c_bus_cfg = {
+            .mode = I2C_MODE_MASTER,
             .sda_io_num = AUDIO_CODEC_I2C_SDA_PIN,
             .scl_io_num = AUDIO_CODEC_I2C_SCL_PIN,
-            .clk_source = I2C_CLK_SRC_DEFAULT,
-            .glitch_ignore_cnt = 7,
-            .intr_priority = 0,
-            .trans_queue_depth = 0,
-            .flags = {.enable_internal_pullup = 1},
+            .sda_pullup_en = GPIO_PULLUP_ENABLE,
+            .scl_pullup_en = GPIO_PULLUP_ENABLE,
+            .master = {
+                .clk_speed = 400000,
+            },
+            .clk_flags = 0,
         };
-        ESP_ERROR_CHECK(i2c_new_master_bus(&i2c_bus_cfg, &i2c_bus_));
+        shared_i2c_bus_ = i2c_bus_create(I2C_NUM_0, &i2c_bus_cfg);
+        if (!shared_i2c_bus_) {
+            ESP_LOGE(TAG, "Failed to create shared I2C bus");
+            return;
+        }
+        i2c_bus_ = i2c_bus_get_internal_bus_handle(shared_i2c_bus_);
 
         if (ioe_.begin(i2c_bus_, M5IOE1_I2C_ADDR, M5IOE1_I2C_FREQ_100K, M5IOE1_INT_MODE_POLLING) != M5IOE1_OK) {
             ESP_LOGE(TAG, "M5IOE1 begin failed");
@@ -382,7 +391,6 @@ private:
         ioe_.digitalWrite(IOE_PIN_PA_EN, HIGH);
 
         ioe_.pinMode(IOE_PIN_MOTOR, OUTPUT);
-        ioe_.pinMode(IOE_PIN_MOTOR, OUTPUT);
         ioe_.setDriveMode(IOE_PIN_MOTOR, M5IOE1_DRIVE_PUSHPULL);
         ioe_.digitalWrite(IOE_PIN_MOTOR, LOW);
 
@@ -400,32 +408,31 @@ private:
         Rx8130Rtc::GetInstance().Init(i2c_bus_);
     }
 
-    i2c_master_dev_handle_t imu_dev_ = nullptr;
+    bmi270_handle_t bmi_handle_ = nullptr;
     TaskHandle_t imu_task_handle_ = nullptr;
 
     void InitializeImu() {
-        if (!i2c_bus_) return;
-        i2c_device_config_t dev_cfg = {
-            .dev_addr_length = I2C_ADDR_BIT_LEN_7,
-            .device_address = 0x68, // BMI270 I2C
-            .scl_speed_hz = 100000,
-        };
-        esp_err_t err = i2c_master_bus_add_device(i2c_bus_, &dev_cfg, &imu_dev_);
-        if (err != ESP_OK || !imu_dev_) {
-            ESP_LOGW(TAG, "BMI270 IMU add device failed: %s", esp_err_to_name(err));
+        if (!shared_i2c_bus_) return;
+
+        esp_err_t ret = bmi270_sensor_create(shared_i2c_bus_, &bmi_handle_, bmi270_config_file,
+                                             BMI2_GYRO_CROSS_SENS_ENABLE | BMI2_CRT_RTOSK_ENABLE);
+        if (ret != ESP_OK || !bmi_handle_) {
+            ESP_LOGW(TAG, "BMI270 create failed: %s", esp_err_to_name(ret));
             return;
         }
 
-        // Enable accelerometer: write 0x7D (PWR_CTRL) = 0x0E (accel + gyro en)
-        uint8_t pwr_ctrl[2] = {0x7D, 0x0E};
-        i2c_master_transmit(imu_dev_, pwr_ctrl, 2, 50);
-        uint8_t pwr_conf[2] = {0x7C, 0x00}; // disable advanced power saving
-        i2c_master_transmit(imu_dev_, pwr_conf, 2, 50);
+        const uint8_t sens_list[] = {BMI2_ACCEL};
+        int8_t rslt = bmi270_sensor_enable(sens_list, 1, bmi_handle_);
+        if (rslt != BMI2_OK) {
+            ESP_LOGW(TAG, "BMI270 accel enable failed: %d", rslt);
+            return;
+        }
 
-        // Start background IMU motion task
+        ESP_LOGI(TAG, "BMI270 IMU initialized successfully with official microcode!");
+
         xTaskCreate([](void* arg) {
             auto* self = static_cast<M5StackStopwatchBoard*>(arg);
-            if (!self || !self->imu_dev_) {
+            if (!self || !self->bmi_handle_) {
                 vTaskDelete(NULL);
                 return;
             }
@@ -435,12 +442,11 @@ private:
             int64_t last_shake_tick = 0;
 
             while (true) {
-                uint8_t reg = 0x0C; // Accel X LSB (0x0C-0x11)
-                uint8_t raw[6] = {0};
-                if (i2c_master_transmit_receive(self->imu_dev_, &reg, 1, raw, 6, 50) == ESP_OK) {
-                    int16_t cur_x = (int16_t)(raw[0] | (raw[1] << 8));
-                    int16_t cur_y = (int16_t)(raw[2] | (raw[3] << 8));
-                    int16_t cur_z = (int16_t)(raw[4] | (raw[5] << 8));
+                struct bmi2_sens_data sens_data;
+                if (bmi2_get_sensor_data(&sens_data, self->bmi_handle_) == BMI2_OK) {
+                    int16_t cur_x = sens_data.acc.x;
+                    int16_t cur_y = sens_data.acc.y;
+                    int16_t cur_z = sens_data.acc.z;
 
                     if (has_prev) {
                         int dx = std::abs((int)cur_x - (int)prev_x);
@@ -449,7 +455,7 @@ private:
                         int shake_score = dx + dy + dz;
 
                         int64_t now_ms = esp_timer_get_time() / 1000;
-                        if (shake_score > 22000 && (now_ms - last_shake_tick) > 2000) {
+                        if (shake_score > 18000 && (now_ms - last_shake_tick) > 2000) {
                             last_shake_tick = now_ms;
                             ESP_LOGI(TAG, "Shake detected (score: %d), trigger dizzy reaction", shake_score);
 
@@ -463,9 +469,10 @@ private:
                     }
 
                     // Feed IMU acceleration to WatchPageManager to drive FluidBox
+                    // The StopWatch display swaps X/Y
                     WatchPageManager::GetInstance().SetImuAccel(
-                        (float)cur_x / 16384.0f * 9.8f,
                         (float)cur_y / 16384.0f * 9.8f,
+                        (float)cur_x / 16384.0f * 9.8f,
                         (float)cur_z / 16384.0f * 9.8f
                     );
 
@@ -474,9 +481,9 @@ private:
                     prev_z = cur_z;
                     has_prev = true;
                 }
-                vTaskDelay(pdMS_TO_TICKS(60));
+                vTaskDelay(pdMS_TO_TICKS(50));
             }
-        }, "imu_task", 3072, this, 3, &imu_task_handle_);
+        }, "imu_task", 4096, this, 3, &imu_task_handle_);
     }
 
     i2c_master_dev_handle_t touch_dev_ = nullptr;
@@ -638,7 +645,8 @@ private:
 
 public:
     M5StackStopwatchBoard()
-        : i2c_bus_(nullptr),
+        : shared_i2c_bus_(nullptr),
+          i2c_bus_(nullptr),
           button1_(BUTTON1_GPIO),
           button2_(BUTTON2_GPIO),
           display_(nullptr),

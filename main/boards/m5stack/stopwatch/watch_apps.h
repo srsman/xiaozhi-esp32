@@ -6,6 +6,12 @@
 #include <vector>
 #include <string>
 
+// M5Stack StopWatch AMOLED Display Dimensions
+#define WATCH_DISPLAY_WIDTH   466
+#define WATCH_DISPLAY_HEIGHT  466
+#define WATCH_CENTER_X        233
+#define WATCH_CENTER_Y        233
+
 enum WatchPageId {
     WATCH_PAGE_MUSE = 0,
     WATCH_PAGE_WATCHFACE,
@@ -45,13 +51,13 @@ public:
     void Init(lv_obj_t* muse_screen, HapticCallback haptic_cb, BatteryCallback bat_cb,
               BrightnessCallback bright_cb = nullptr, VolumeCallback vol_cb = nullptr);
     void SwitchToPage(WatchPageId page_id, lv_screen_load_anim_t anim = LV_SCR_LOAD_ANIM_MOVE_LEFT);
-    bool HandleBack(); // Returns true if it handled back (returned to MUSE from a sub-page)
+    bool HandleBack();
     WatchPageId GetCurrentPage() const { return current_page_; }
 
-    void Update1s();   // Called every 1s for clock / watchface / alarm
-    void Update30ms();  // Called every 30ms for stopwatch, fluid, fft & animations
+    void Update1s();
+    void Update30ms();
 
-    // IMU gravity update
+    // IMU real gravity vector input from BMI270
     void SetImuAccel(float ax, float ay, float az);
 
     lv_obj_t* GetWatchfaceScreen() const { return watchface_screen_; }
@@ -103,15 +109,15 @@ private:
     BrightnessCallback bright_cb_ = nullptr;
     VolumeCallback vol_cb_ = nullptr;
 
-    // ------------------- Watchface widgets -------------------
+    // ------------------- Watchface widgets (466x466) ---------
     WatchfaceStyle wf_style_ = WF_STYLE_BIG_DIGITAL;
     int wf_theme_color_idx_ = 0;
     lv_obj_t* wf_container_ = nullptr;
     lv_obj_t* wf_bat_label_ = nullptr;
 
     // Style 0: Big Digital
-    lv_obj_t* wf_time_label_ = nullptr;
-    lv_obj_t* wf_sec_label_ = nullptr;
+    lv_obj_t* wf_hour_label_ = nullptr;
+    lv_obj_t* wf_min_label_ = nullptr;
     lv_obj_t* wf_date_label_ = nullptr;
     lv_obj_t* wf_sec_arc_ = nullptr;
 
@@ -119,6 +125,8 @@ private:
     lv_obj_t* wf_hour_hand_ = nullptr;
     lv_obj_t* wf_min_hand_ = nullptr;
     lv_obj_t* wf_sec_hand_ = nullptr;
+    lv_obj_t* wf_classic_date_label_ = nullptr;
+    lv_obj_t* wf_classic_week_label_ = nullptr;
     lv_point_precise_t hour_pts_[2] = {{0,0}, {0,0}};
     lv_point_precise_t min_pts_[2]  = {{0,0}, {0,0}};
     lv_point_precise_t sec_pts_[2]  = {{0,0}, {0,0}};
@@ -128,12 +136,14 @@ private:
     lv_obj_t* wf_ring_min_ = nullptr;
     lv_obj_t* wf_ring_sec_ = nullptr;
     lv_obj_t* wf_sport_time_label_ = nullptr;
+    lv_obj_t* wf_sport_date_label_ = nullptr;
 
-    // Style 3: Minimal Zen
+    // Style 3: Minimal Zen Planet
     lv_obj_t* wf_zen_date_ = nullptr;
     lv_obj_t* wf_zen_time_ = nullptr;
+    lv_obj_t* wf_zen_planet_ = nullptr;
 
-    // ------------------- Stopwatch & Timer widgets -----------
+    // ------------------- Stopwatch & Timer widgets (466x466) -
     enum SwTimerMode { MODE_STOPWATCH, MODE_COUNTDOWN };
     SwTimerMode sw_mode_ = MODE_STOPWATCH;
 
@@ -155,32 +165,30 @@ private:
     lv_obj_t* sw_btn_left_label_ = nullptr;
     lv_obj_t* sw_btn_right_ = nullptr;
     lv_obj_t* sw_btn_right_label_ = nullptr;
-    lv_obj_t* sw_laps_list_ = nullptr;
+    lv_obj_t* sw_laps_label_ = nullptr;
     lv_obj_t* sw_mode_tab_ = nullptr;
 
-    // ------------------- Alarm widgets -----------------------
+    // ------------------- Alarm widgets (466x466) -------------
     bool alarm_enabled_ = false;
     int alarm_hour_ = 7;
     int alarm_min_ = 30;
     lv_obj_t* alarm_time_label_ = nullptr;
     lv_obj_t* alarm_switch_ = nullptr;
     lv_obj_t* alarm_status_label_ = nullptr;
-    lv_obj_t* alarm_popup_ = nullptr;
 
-    // ----------------- FluidBox widgets ----------------------
-    static constexpr int FLUID_PARTICLE_COUNT = 48;
+    // ----------------- FluidBox widgets (466x466) ------------
+    static constexpr int FLUID_PARTICLE_COUNT = 60;
     std::vector<FluidParticle> particles_;
     float imu_gx_ = 0.0f;
     float imu_gy_ = 9.8f;
     lv_obj_t* fluid_ring_ = nullptr;
 
-    // -------------------- FFT widgets ------------------------
-    static constexpr int FFT_BAR_COUNT = 16;
+    // -------------------- FFT widgets (466x466) --------------
+    static constexpr int FFT_BAR_COUNT = 32;
     lv_obj_t* fft_bars_[FFT_BAR_COUNT] = {nullptr};
     int fft_heights_[FFT_BAR_COUNT] = {0};
-    int fft_peaks_[FFT_BAR_COUNT] = {0};
 
-    // ----------------- Lucky Wheel widgets -------------------
+    // ----------------- Lucky Wheel widgets (466x466) ---------
     lv_obj_t* wheel_arc_ = nullptr;
     lv_obj_t* wheel_result_label_ = nullptr;
     lv_obj_t* wheel_spin_btn_ = nullptr;
@@ -189,17 +197,19 @@ private:
     float wheel_speed_ = 0.0f;
     int wheel_chosen_idx_ = -1;
 
-    // ------------------- Badge widgets -----------------------
+    // ------------------- Badge widgets (466x466) -------------
     int badge_slot_ = 0;
     lv_obj_t* badge_name_label_ = nullptr;
     lv_obj_t* badge_title_label_ = nullptr;
     lv_obj_t* badge_desc_label_ = nullptr;
     lv_obj_t* badge_card_ = nullptr;
 
-    // ------------------ Settings widgets ---------------------
+    // ------------------ Settings widgets (466x466) -----------
     lv_obj_t* bright_slider_ = nullptr;
     lv_obj_t* vol_slider_ = nullptr;
     lv_obj_t* dev_info_label_ = nullptr;
+    lv_obj_t* bright_val_label_ = nullptr;
+    lv_obj_t* vol_val_label_ = nullptr;
 };
 
 #endif // WATCH_APPS_H
