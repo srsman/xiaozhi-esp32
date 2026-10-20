@@ -739,13 +739,11 @@ public:
             }
         });
         HalBridgeHooks::SetGetTimeCallback([](int& y, int& m, int& d, int& h, int& min, int& s) {
-            if (s_self && s_self->rx8130_.IsInitialized()) {
-                rx8130_time_t t;
-                if (s_self->rx8130_.GetTime(&t)) {
-                    y = 2000 + t.year; m = t.month; d = t.day;
-                    h = t.hour; min = t.minute; s = t.second;
-                    return;
-                }
+            struct tm t;
+            if (Rx8130Rtc::GetInstance().GetTime(&t)) {
+                y = 1900 + t.tm_year; m = t.tm_mon + 1; d = t.tm_mday;
+                h = t.tm_hour; min = t.tm_min; s = t.tm_sec;
+                return;
             }
             time_t now = time(nullptr);
             struct tm tm_info;
@@ -754,13 +752,14 @@ public:
             h = tm_info.tm_hour; min = tm_info.tm_min; s = tm_info.tm_sec;
         });
         HalBridgeHooks::SetSetTimeCallback([](int y, int m, int d, int h, int min, int s) {
-            if (s_self && s_self->rx8130_.IsInitialized()) {
-                rx8130_time_t t;
-                t.year = (y >= 2000) ? (y - 2000) : y;
-                t.month = m; t.day = d;
-                t.hour = h; t.minute = min; t.second = s;
-                s_self->rx8130_.SetTime(&t);
-            }
+            struct tm t = {};
+            t.tm_year = (y >= 1900) ? (y - 1900) : y;
+            t.tm_mon = m - 1;
+            t.tm_mday = d;
+            t.tm_hour = h;
+            t.tm_min = min;
+            t.tm_sec = s;
+            Rx8130Rtc::GetInstance().SetTime(&t);
         });
         HalBridgeHooks::SetBrightnessCallbacks(
             [](int b) { if (s_self && s_self->backlight_) s_self->backlight_->SetBrightness(b); },
