@@ -1,153 +1,97 @@
-# StopWatch
+# M5Stack StopWatch (小智 AI 秒表手表)
 
------------
-## hardware
+[English](README.md) | [中文](README.md)
 
-* MCU:ESP32-S3
-    * Flash: 16MiB
-    * PSRAM: 8MiB
-    * SYS_I2C/I2C1
-        * SCL -- G48
-        * SCA -- G47
-* PMIC: M5PM1@0x6E
-    * Interface: SYS_I2C
-* IO Expander: M5IOE1@0x4F
-    * Interface: SYS_I2C
-* Power
-    * Charge Enable -- M5PM1_CHG_EN_PP
-    * Charge State -- M5PM1_G2
-    * Charge Current Prog -- M5PM1_G3
-    * Motor -- M5IOE1_G9
-    * Ext output -- M5PM1_BOOST5V_EN_PP
-    * Ext output voltage -- M5PM1_5VOUT_ADC_IN
-* Display
-    * Power -- M5IO1_G8
-    * Interface: QSPI
-    * Driver: CO5300
-    * Resolution: 466x466
-    * 圆形显示屏 1.75 Inch Amoled
-    * Pin Map
-        * RST      -- M5IOE1_G5
-        * TE       -- G38
-        * QSPI_CS  -- G39
-        * QSPI_SCK -- G40
-        * QSPI_D0  -- G41
-        * QSPI_D1  -- G42
-        * QSPI_D2  -- G46
-        * QSPI_D3  -- G45
-* CTP: CST820B@0x15
-    * RST -- M5IOE1_G4
-    * INT -- G13
-    * Interface: SYS_I2C
-* Audio
-    * Power -- M5IOE1_G3
-    * CODEC: ES8311@0x18
-        * Contral Interface: SYS_I2C
-        * Data Interface:
-            * I2S_MCLK -- G18
-            * I2S_BCLK -- G17
-            * I2S_LRCK -- G15
-            * I2S_DIN  -- G21
-            * I2S_DOUT -- G16
-    * PA -- M5IOE1_G10
-* Button
-    * Btuuon1 - G1
-    * Button2 - G2
-* RTC: RX8130CE@0x32
-    * Interface: SYS_I2C
-* Grove
-    * GND
-    * 5V
-    * G10
-    * G11
+M5Stack StopWatch 是一款基于 ESP32-S3 的圆形触摸屏智能秒表/智能手表。本项目在保留小智 AI 完整语音交互（在线大模型对话、Muse 动态表情头像、TTS 流式播报）的同时，100% 融合了 M5Stack 官方全套应用生态与高颜值资产。
 
------------
-## 快速构建
+---
 
-推荐使用 build 脚本生成完整固件包：
+## 🌟 特性亮点
 
+### 1. 深度融合应用生态
+- **小智 AI (XiaoZhi)**：离线语音唤醒、Muse 动态数字人表情头像、实时全双工语音交互、声纹识别与 MCP 多端控制。
+- **表盘 (Watch Face)**：经典指针、极客数字、极简现代等多种表盘随意切换。
+- **秒表 (Stopwatch)**：官方高精度计时与计次圈数功能。
+- **胸牌 (Badge)**：
+  - **开箱即用极客胸牌**：内置小智 AI 赛博工牌、星际领航员通行证、数字矩阵极客徽章 3 款高清矢量主题。
+  - **全屏触摸手势交互**：支持屏幕左右滑动（Swipe Left / Right）、屏幕边缘轻触切屏、底部动态小圆点指示。
+  - **手机无线传图（方案 A）**：长按屏幕唤起编辑模式，设备开启独立 Wi-Fi 热点并启动 Web 服务器，手机连接热点后打开网页 (`http://192.168.4.1`) 即可多槽位上传、预览、切换与删除专属自定义胸牌图片。
+  - **平滑双模与防抖保护**：带状态指示与防抖退出机制，退出后自动无缝恢复小智 Wi-Fi Station 网络。
+- **闹钟 (Alarm Clock)**：支持多组定时闹钟、震动提醒。
+- **幸运转盘 (Lucky Wheel)**：趣味随机决定转盘，支持触控旋转。
+- **音乐频谱 (Audio FFT)**：高保真音频频谱动态跳动显示。
+- **水平仪 (IMU)**：六轴姿态传感器实时水平仪与角度显示。
+- **流体小球 (FluidBox)**：重力感应物理碰撞粒子小球。
+- **系统设置 (Settings)**：亮度调节、音量控制、时间校准、系统信息。
+- **应用抽屉 (App Launcher)**：3D 仿真实体秒表圆球物理抽屉，文字标签与小球精确对齐、无遮挡。
+
+---
+
+## 🛠️ 硬件规格
+
+| 项目 | 规格参数 |
+| :--- | :--- |
+| **主控芯片** | ESP32-S3 (双核 240MHz) |
+| **存储配置** | 16MiB Flash + 8MiB Octal PSRAM |
+| **显示屏幕** | 1.75 英寸 AMOLED 圆形触摸屏 (466 × 466 分辨率, QSPI 接口, CO5300 驱动) |
+| **触控芯片** | CST820B 电容触摸屏 (I2C 接口 @ 0x15, 中断引脚 G13) |
+| **音频编解码** | ES8311 高保真 Codec (I2S 接口, 录放双工, 硬件功放使能控制) |
+| **电源与电池** | M5PM1 智能电源管理 (I2C @ 0x6E), 支持高精度电量计、充电管理、锂电池供电 |
+| **IO 扩展芯片** | M5IOE1 (I2C @ 0x4F, 控制屏供电、复位、马达、功放等) |
+| **传感器与RTC** | BMI270 六轴 IMU + RX8130CE 独立高精度 RTC 实时时钟 |
+| **震动反馈** | 内置扁平马达，支持触觉振动反馈与自定义振感 |
+
+---
+
+## 🗂️ Flash 分区表设计 (16MB Flash)
+
+采用专用的优化分区表 `partitions/v2/16m_stopwatch.csv`：
+
+| 分区名 | 类型 | 子类型 | 偏移地址 | 大小 | 说明 |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `nvs` | data | nvs | 0x9000 | 16 KB | 系统配置、WiFi 凭据等 |
+| `otadata` | data | ota | 0xd000 | 8 KB | OTA 升级状态标识 |
+| `ota_0` | app | ota_0 | 0x20000 | **5.125 MB** | 主运行固件（包含小智 AI + 全套 App） |
+| `ota_1` | app | ota_1 | 0x540000 | **5.125 MB** | 完整 OTA 升级备用分区 |
+| `storage` | data | fat | 0xa60000 | **1.625 MB** | FATFS 文件系统（胸牌图片、用户数据） |
+| `assets` | data | spiffs | 0xc00000 | **4.000 MB** | 系统图标、音效、字体与 UI 媒体资源 |
+
+---
+
+## 🚀 编译与构建
+
+### 1. 推荐方式：GitHub Actions 云端自动构建
+代码推送到 `main` 分支后，GitHub Actions 流水线会自动编译并生成包含 bootloader、分区表、ota_0 与 assets 的完整合并固件包 `merged-binary.bin`。
+
+### 2. 本地命令行构建
 ```bash
-python scripts/build.py m5stack-stopwatch --name m5stack-stopwatch --zip
-```
-
-生成的固件压缩包位于：
-
-```text
-releases/v2.2.6_m5stack-stopwatch.zip
-```
-
------------
-## 手动配置
-
-配置编译目标：
-
-```bash
+# 设置编译目标
 idf.py set-target esp32s3
-```
 
-打开配置菜单：
-
-```bash
-idf.py menuconfig
-```
-
-选择板卡：
-
-```text
-Xiaozhi Assistant -> Board Type -> M5Stack StopWatch
-```
-
-配置 Flash 大小：
-
-```text
-Serial flasher config -> Flash size -> 16 MB
-```
-
-配置分区表：
-
-```text
-Partition Table -> Custom partition CSV file -> partitions/v2/16m.csv
-```
-
-配置 PSRAM：
-
-```text
-Component config -> ESP PSRAM -> Support for external, SPI-connected RAM -> Select
-Component config -> ESP PSRAM -> SPI RAM config -> Mode (QUAD/OCT) -> Octal Mode PSRAM
-Component config -> ESP PSRAM -> SPI RAM config -> Set RAM clock speed -> 80MHz clock speed
-```
-
-配置唤醒词实现方式：
-
-```text
-Xiaozhi Assistant -> Wake Word Implementation Type -> Wakenet model with AFE
-```
-
-编译：
-
-```bash
+# 编译固件
 idf.py build
 ```
 
-## 合并固件
+---
 
-手动构建后，可使用以下命令合并烧录固件：
+## ⚡ 固件烧录
 
-```bash
-esptool.py --chip esp32s3 merge_bin \
-    --flash_mode dio \
-    --flash_freq 80m \
-    --flash_size 16MB \
-    0x0 build/bootloader/bootloader.bin \
-    0x8000 build/partition_table/partition-table.bin \
-    0xd000 build/ota_data_initial.bin \
-    0x20000 build/xiaozhi.bin \
-    0x800000 build/generated_assets.bin \
-    -o M5Stack-StopWatch-XiaoZhi-v2.2.6_0x00.bin
-```
-
-烧录合并后的固件：
+通过 USB Type-C 连接设备至电脑（假设端口为 `COM5`），执行合并固件一键烧录：
 
 ```bash
-esptool.py -b 1500000 write_flash -z 0 M5Stack-StopWatch-XiaoZhi-v2.2.6_0x00.bin
+# 使用 esptool 极速烧录（波特率 921600）
+esptool.py --chip esp32s3 -p COM5 -b 921600 write_flash 0x0 merged-binary.bin
 ```
+
+---
+
+## 📖 使用指引
+
+1. **唤醒与对话**：开机后点击屏幕小智图标或说出唤醒词“你好小智”，圆形表盘将展示动态 Muse 头像并进入实时语音对话模式。
+2. **切换应用**：由表盘向左滑动或按右侧按键进入物理小球应用抽屉，旋转/点击即可启动不同功能。
+3. **胸牌玩法**：
+   - 进入“胸牌 (Badge)”应用后，在屏幕上**向左或向右滑动**即可在内置极客卡片和用户自定义图片之间自由切换；
+   - **长按屏幕**弹出 `Enter badge edit?` 对话框，点击 `[Edit]` 即开启专属传图热点；
+   - 用手机连接热点（如 `M5StopWatch-XXXX`，无密码），在手机浏览器访问 `http://192.168.4.1`；
+   - 在手机网页上点击任意槽位上传喜欢的 JPG/PNG 照片，手表将即刻同步保存并显示；
+   - 传图完毕后，按一下侧边按钮即可退出传图模式，手表恢复正常联网状态。
