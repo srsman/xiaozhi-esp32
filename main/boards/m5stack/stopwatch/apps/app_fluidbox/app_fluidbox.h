@@ -13,6 +13,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 #include <freertos/task.h>
+#include <smooth_lvgl.hpp>
 
 class AppFluidBox : public mooncake::AppAbility {
 public:
@@ -28,10 +29,11 @@ private:
     std::unique_ptr<FluidBox> _fluid;
     bool _fluid_ready = false;
 
-    std::atomic<bool> _render_running{false};
-    bool _render_task_created = false;
-    TaskHandle_t _render_task = nullptr;
-    SemaphoreHandle_t _render_stopped = nullptr;
+    std::unique_ptr<uitk::lvgl_cpp::Container> _panel;
+    lv_obj_t* _canvas = nullptr;
+    uint16_t* _canvas_buf = nullptr;
+    int _canvas_w = 466;
+    int _canvas_h = 466;
 
     int64_t _next_imu_micros = 0;
     int64_t _next_simulation_micros = 0;
@@ -39,8 +41,6 @@ private:
     int64_t _last_imu_micros = 0;
     bool _touch_down = false;
 
-    static void renderTaskEntry(void* arg);
-    void renderLoop();
     void renderFrame();
     void updateImu(int64_t nowMicros);
     void updateTouch();

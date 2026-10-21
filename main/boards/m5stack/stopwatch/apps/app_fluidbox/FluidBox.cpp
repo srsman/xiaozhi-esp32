@@ -896,4 +896,60 @@ FluidBox::RenderTiming FluidBox::render(LGFX_Device& display) {
   return timing;
 }
 
+static inline void draw_fast_circle(uint16_t* buf, int w, int h, int cx, int cy, int r, uint16_t color) {
+  int x0 = std::max(0, cx - r);
+  int x1 = std::min(w - 1, cx + r);
+  int y0 = std::max(0, cy - r);
+  int y1 = std::min(h - 1, cy + r);
+  int r2 = r * r;
+  for (int y = y0; y <= y1; ++y) {
+    int dy = y - cy;
+    int dy2 = dy * dy;
+    uint16_t* row = buf + y * w;
+    for (int x = x0; x <= x1; ++x) {
+      int dx = x - cx;
+      if (dx * dx + dy2 <= r2) {
+        row[x] = color;
+      }
+    }
+  }
+}
+
+FluidBox::RenderTiming FluidBox::renderToBuffer(uint16_t* buffer, int width, int height) {
+  RenderTiming timing;
+  if (!buffer || width <= 0 || height <= 0) return timing;
+
+  const int snapshotIndex = acquireRenderSnapshot();
+  if (snapshotIndex < 0) {
+    memset(buffer, 0, width * height * sizeof(uint16_t));
+    return timing;
+  }
+
+  timing.snapshotAvailable = true;
+  uint32_t phaseStarted = fluidboxMicros();
+  prepareProjection(renderSnapshots_[snapshotIndex]);
+  timing.projectionMicros = fluidboxMicros() - phaseStarted;
+
+  phaseStarted = fluidboxMicros();
+  memset(buffer, 0, width * height * sizeof(uint16_t));
+  timing.clearMicros = fluidboxMicros() - phaseStarted;
+
+  phaseStarted = fluidboxMicros();
+  for (int order = static_cast<int>(cfg::kParticleCount) - 1; order >= 0; --order) {
+    const ProjectedParticle& p = projected_[drawOrder_[order]];
+    draw_fast_circle(buffer, width, height, p.x, p.y, p.radius, p.color);
+    if (cfg::kHighlightsEnabled && p.radius >= 3) {
+      const int highlightRadius = p.radius / 2;
+      draw_fast_circle(buffer, width, height,
+                       p.x - p.radius / 3,
+                       p.y - p.radius / 3,
+                       highlightRadius,
+                       p.highlight);
+    }
+  }
+  timing.particleMicros = fluidboxMicros() - phaseStarted;
+  releaseRenderSnapshot(static_cast<uint8_t>(snapshotIndex));
+  return timing;
+}
+
 // clang-format on

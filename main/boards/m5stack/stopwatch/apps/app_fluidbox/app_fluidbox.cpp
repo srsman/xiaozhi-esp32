@@ -10,6 +10,8 @@
 #include <hal/hal.h>
 #include <mooncake_log.h>
 #include <esp_timer.h>
+#include <esp_heap_caps.h>
+#include <cstring>
 #include <new>
 
 namespace cfg = fluidbox_config;
@@ -26,7 +28,6 @@ constexpr int64_t periodMicros(uint16_t rate)
 AppFluidBox::AppFluidBox()
 {
     setAppInfo().name = "FluidBox";
-
     setAppInfo().icon = (void*)&fluidbox_icon;
 }
 
@@ -41,23 +42,38 @@ void AppFluidBox::onOpen()
 
     _key_manager = std::make_unique<input::KeyManager>();
 
-    // FluidBox draws directly with M5GFX. Stop the LVGL worker and take/release
-    // its mutex once as a barrier so no in-flight LVGL flush can overlap our
-    // direct framebuffer ownership.
-    GetHAL().stopLvglUpdate();
-    if (GetHAL().lvglLock()) {
-        GetHAL().lvglUnlock();
+    LvglLockGuard lock;
+
+    // 创建全屏纯黑底色面板
+    _panel = std::make_unique<uitk::lvgl_cpp::Container>(lv_screen_active());
+    _panel->align(LV_ALIGN_CENTER, 0, 0);
+    _panel->setSize(466, 466);
+    _panel->setRadius(0);
+    _panel->setBorderWidth(0);
+    _panel->setPaddingAll(0);
+    _panel->setBgColor(lv_color_black());
+    _panel->setBgOpa(LV_OPA_COVER);
+    _panel->removeFlag(LV_OBJ_FLAG_SCROLLABLE);
+
+    _canvas_w = 466;
+    _canvas_h = 466;
+    _canvas_buf = (uint16_t*)heap_caps_malloc(_canvas_w * _canvas_h * sizeof(uint16_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!_canvas_buf) {
+        // 如果 466x466 分配不到，回退到 320x320
+        _canvas_w = 320;
+        _canvas_h = 320;
+        _canvas_buf = (uint16_t*)heap_caps_malloc(_canvas_w * _canvas_h * sizeof(uint16_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     }
 
-    auto& display = GetHAL().getDisplay();
-    display.startWrite();
-    display.fillScreen(TFT_BLACK);
-    display.endWrite();
+    if (_canvas_buf) {
+        memset(_canvas_buf, 0, _canvas_w * _canvas_h * sizeof(uint16_t));
+        _canvas = lv_canvas_create(_panel->get());
+        lv_canvas_set_buffer(_canvas, _canvas_buf, _canvas_w, _canvas_h, LV_COLOR_FORMAT_RGB565);
+        lv_obj_center(_canvas);
+    }
 
-    // The solver owns more than 100 KB of fixed working arrays, so keep it
-    // allocated only while this demo is actually open.
     _fluid.reset(new (std::nothrow) FluidBox());
-    _fluid_ready = _fluid && _fluid->begin(display.width(), display.height());
+    _fluid_ready = _fluid && _fluid->begin(_canvas_w, _canvas_h);
     if (!_fluid) {
         mclog::tagError(getAppInfo().name, "failed to allocate FluidBox solver");
     }
@@ -69,27 +85,8 @@ void AppFluidBox::onOpen()
     _last_imu_micros = 0;
     _touch_down = false;
 
-    _render_stopped = xSemaphoreCreateBinary();
-    _render_running.store(_fluid_ready);
-
-    if (_fluid_ready && _render_stopped != nullptr) {
-        const BaseType_t app_core = xPortGetCoreID();
-        const BaseType_t render_core = app_core == 0 ? 1 : 0;
-        const BaseType_t result = xTaskCreatePinnedToCore(
-            renderTaskEntry,
-            "fluid-render",
-            cfg::kRenderTaskStackBytes,
-            this,
-            cfg::kRenderTaskPriority,
-            &_render_task,
-            render_core);
-        _render_task_created = result == pdPASS;
-    } else {
-        _render_task_created = false;
-    }
-
-    mclog::tagInfo(getAppInfo().name, "fluid ready: {}, render task: {}",
-                   _fluid_ready, _render_task_created);
+    mclog::tagInfo(getAppInfo().name, "fluid ready: {}, canvas: {}x{}",
+                   _fluid_ready, _canvas_w, _canvas_h);
 }
 
 void AppFluidBox::onRunning()
@@ -102,7 +99,7 @@ void AppFluidBox::onRunning()
         return;
     }
 
-    // Match the standalone FluidBox recovery control: B resets the fluid.
+    // 按下另一按键重置流体
     if (event == input::KeyEvent::GoNext && _fluid_ready) {
         _fluid->reset();
     }
@@ -122,9 +119,8 @@ void AppFluidBox::onRunning()
         _fluid->step(1.0f / static_cast<float>(cfg::kSimulationHz));
     }
 
-    // If task allocation failed, retain a usable single-task fallback.
     now = esp_timer_get_time();
-    if (_fluid_ready && !_render_task_created && now >= _next_render_micros) {
+    if (_fluid_ready && now >= _next_render_micros) {
         _next_render_micros = now + periodMicros(cfg::kRenderHz);
         renderFrame();
     }
@@ -134,89 +130,33 @@ void AppFluidBox::onClose()
 {
     mclog::tagInfo(getAppInfo().name, "on close");
 
-    _render_running.store(false);
-
-    if (_render_task_created && _render_stopped != nullptr) {
-        xSemaphoreTake(_render_stopped, portMAX_DELAY);
-    }
-
-    _render_task = nullptr;
-    _render_task_created = false;
-
-    if (_render_stopped != nullptr) {
-        vSemaphoreDelete(_render_stopped);
-        _render_stopped = nullptr;
-    }
-
     _fluid_ready = false;
     _touch_down = false;
     _fluid.reset();
     _key_manager.reset();
 
-    auto& display = GetHAL().getDisplay();
-    display.startWrite();
-    display.fillScreen(TFT_BLACK);
-    display.endWrite();
-
-    // Hand display ownership back to LVGL. Mark the active screen dirty so the
-    // launcher repaint is never dependent on stale framebuffer contents.
-    if (GetHAL().lvglLock()) {
-        lv_obj_invalidate(lv_screen_active());
-        GetHAL().lvglUnlock();
+    LvglLockGuard lock;
+    if (_canvas) {
+        lv_obj_delete(_canvas);
+        _canvas = nullptr;
     }
-    GetHAL().startLvglUpdate();
-}
+    _panel.reset();
 
-void AppFluidBox::renderTaskEntry(void* arg)
-{
-    auto* self = static_cast<AppFluidBox*>(arg);
-    self->renderLoop();
-
-    if (self->_render_stopped != nullptr) {
-        xSemaphoreGive(self->_render_stopped);
-    }
-    vTaskDelete(nullptr);
-}
-
-void AppFluidBox::renderLoop()
-{
-    const int64_t period = periodMicros(cfg::kRenderHz);
-    int64_t nextFrameMicros = esp_timer_get_time();
-
-    while (_render_running.load()) {
-        const int64_t now = esp_timer_get_time();
-        if (now < nextFrameMicros) {
-            const int64_t remainingMicros = nextFrameMicros - now;
-            const TickType_t remainingTicks =
-                pdMS_TO_TICKS(static_cast<uint32_t>(remainingMicros / 1000));
-            if (remainingTicks > 1) {
-                vTaskDelay(remainingTicks - 1);
-            } else {
-                vTaskDelay(1);
-            }
-            continue;
-        }
-
-        // Drop missed frames instead of trying to catch up in a burst.
-        nextFrameMicros = now + period;
-        renderFrame();
-
-        // Guarantee the core's idle task gets scheduling time.
-        vTaskDelay(1);
+    if (_canvas_buf) {
+        free(_canvas_buf);
+        _canvas_buf = nullptr;
     }
 }
 
 void AppFluidBox::renderFrame()
 {
-    auto& display = GetHAL().getDisplay();
-
-    display.startWrite();
-    if (_fluid_ready) {
-        _fluid->render(display);
-    } else {
-        display.fillScreen(TFT_BLACK);
+    if (!_fluid_ready || !_canvas || !_canvas_buf) {
+        return;
     }
-    display.endWrite();
+
+    LvglLockGuard lock;
+    _fluid->renderToBuffer(_canvas_buf, _canvas_w, _canvas_h);
+    lv_obj_invalidate(_canvas);
 }
 
 void AppFluidBox::updateImu(int64_t nowMicros)
@@ -230,9 +170,6 @@ void AppFluidBox::updateImu(int64_t nowMicros)
     }
     _last_imu_micros = nowMicros;
 
-    // Hal::updateImuData() already exposes the BMI270 in the StopWatch demo's
-    // display-oriented X/Y convention, so FluidBoxConfig disables its former
-    // M5Unified-side X/Y swap.
     _fluid->setImuSample(
         imu.accelX,
         imu.accelY,

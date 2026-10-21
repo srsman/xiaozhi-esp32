@@ -45,6 +45,7 @@ class FluidBox {
   // The caller owns startWrite()/endWrite() so one complete fluid frame is
   // committed to the M5GFX framebuffer in a single display transaction.
   RenderTiming render(LGFX_Device& display);
+  RenderTiming renderToBuffer(uint16_t* buffer, int width, int height);
 
   const Stats& stats() const { return stats_; }
   bool imuActive() const { return imuActive_; }
