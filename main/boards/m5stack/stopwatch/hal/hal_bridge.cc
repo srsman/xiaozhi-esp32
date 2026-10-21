@@ -64,8 +64,11 @@ namespace HalBridgeHooks {
     }
 }
 
+#include "utils/wear_levelling/wear_levelling.h"
+
 void Hal::init() {
     ESP_LOGI(TAG, "Hal init");
+    wear_levelling_init();
 }
 
 void Hal::delay(std::uint32_t ms) {
@@ -312,51 +315,6 @@ Hal::WifiStatus Hal::getWifiStatus() {
     return s;
 }
 
-static int s_badge_index = 0;
-static const lv_image_dsc_t* s_badge_images[] = {
-    &icon_xiaozhi,
-    &icon_badge,
-    &icon_edit_badge,
-};
-static constexpr int s_badge_count = sizeof(s_badge_images) / sizeof(s_badge_images[0]);
-
-bool Hal::loadBadgeImage(lv_obj_t* image) {
-    if (!image) return false;
-    lv_image_set_src(image, s_badge_images[s_badge_index]);
-    return true;
-}
-
-bool Hal::loadNextBadgeImage(lv_obj_t* image) {
-    if (!image) return false;
-    s_badge_index = (s_badge_index + 1) % s_badge_count;
-    lv_image_set_src(image, s_badge_images[s_badge_index]);
-    return true;
-}
-
-bool Hal::loadPreviousBadgeImage(lv_obj_t* image) {
-    if (!image) return false;
-    s_badge_index = (s_badge_index - 1 + s_badge_count) % s_badge_count;
-    lv_image_set_src(image, s_badge_images[s_badge_index]);
-    return true;
-}
-
-void Hal::startBadgeEditModeViaAp(std::function<void(std::string_view)> onLog) {
-    if (onLog) {
-        onLog("=== 电子胸牌预览与切换 ===\n\n可左右滑动切换精选胸牌卡片\n长按屏幕可再次进入此菜单\n轻触屏幕或按任意键返回");
-    }
-    uint32_t start_time = millis();
-    while (millis() - start_time < 5000) {
-        delay(50);
-        updateButtonStates();
-        auto touch = getTouchPoint();
-        if (touch.num > 0 || btnA.isPressed() || btnB.isPressed()) {
-            while (getTouchPoint().num > 0 || btnA.isPressed() || btnB.isPressed()) {
-                delay(30);
-            }
-            break;
-        }
-    }
-}
 bool Hal::shouldShowGuide() { return false; }
 
 static LGFX_Device s_dummy_display;

@@ -112,7 +112,7 @@ private:
 class DynamicIconLabel {
 public:
     const int show_range      = 150;
-    const int pos_y           = 118;
+    const int pos_y           = 138;
     const int transition_zone = 80;
 
     void init(const std::vector<std::string>& iconLabelTexts, int iconGap, lv_obj_t* parent)

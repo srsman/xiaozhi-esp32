@@ -27,7 +27,14 @@
                 "CONFIG_LV_FONT_MONTSERRAT_48=y",
                 "CONFIG_LV_USE_SNAPSHOT=y",
                 "CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y",
-                "CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\"partitions/v2/16m_stopwatch.csv\""
+                "CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\"partitions/v2/16m_stopwatch.csv\"",
+                "CONFIG_LV_USE_FS_STDIO=y",
+                "CONFIG_LV_FS_STDIO_LETTER=65",
+                "CONFIG_LV_FS_STDIO_CACHE_SIZE=1048576",
+                "CONFIG_LV_USE_TJPGD=y",
+                "CONFIG_LV_USE_LODEPNG=y",
+                "CONFIG_FATFS_LFN_HEAP=y",
+                "CONFIG_WL_SECTOR_SIZE=512"
             ]
         }
     ]

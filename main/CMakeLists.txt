@@ -244,6 +244,8 @@ elseif(CONFIG_BOARD_TYPE_M5STACK_STOPWATCH)
         ${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/stopwatch/hal/*.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/stopwatch/hal/*.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/stopwatch/hal/utils/button/*.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/stopwatch/hal/utils/config_ap/*.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/stopwatch/hal/utils/wear_levelling/*.c
         ${CMAKE_CURRENT_SOURCE_DIR}/../components/mooncake/src/*.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../components/mooncake_log/src/*.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../components/mooncake_log/src/fmt/*.cc
@@ -254,6 +256,8 @@ elseif(CONFIG_BOARD_TYPE_M5STACK_STOPWATCH)
         ${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/stopwatch
         ${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/stopwatch/hal
         ${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/stopwatch/hal/utils/button
+        ${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/stopwatch/hal/utils/config_ap
+        ${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/stopwatch/hal/utils/wear_levelling
         ${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/stopwatch/assets
         ${CMAKE_CURRENT_SOURCE_DIR}/boards/m5stack/stopwatch/apps
         ${CMAKE_CURRENT_SOURCE_DIR}/../components/smooth_ui_toolkit/src
@@ -261,6 +265,7 @@ elseif(CONFIG_BOARD_TYPE_M5STACK_STOPWATCH)
         ${CMAKE_CURRENT_SOURCE_DIR}/../components/mooncake/src
         ${CMAKE_CURRENT_SOURCE_DIR}/../components/mooncake_log/src
     )
+    list(APPEND MAIN_PRIV_REQUIRES_EXTRA esp_http_server wear_levelling fatfs)
     add_compile_definitions(FMT_HEADER_ONLY=1)
     set(STOPWATCH_EMBED_TXTFILES "boards/m5stack/stopwatch/hal/utils/config_ap/assets/badge_config_ap.html")
 elseif(CONFIG_BOARD_TYPE_M5STACK_CORE_P4)

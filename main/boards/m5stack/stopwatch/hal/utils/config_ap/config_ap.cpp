@@ -22,6 +22,7 @@
 #include <esp_netif.h>
 #include <esp_timer.h>
 #include <esp_wifi.h>
+#include <driver/gpio.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/event_groups.h>
 #include <lwip/ip_addr.h>
@@ -130,9 +131,18 @@ public:
             return false;
         }
 
-        log("Connect to Wi-Fi: " + _ssid + "\nAnd open page:\n" + std::string(_ap_url));
+        log("Connect to Wi-Fi: " + _ssid + "\nAnd open page:\n" + std::string(_ap_url) + "\n\nPress Button 1 to exit");
 
-        xEventGroupWaitBits(_event_group, _exit_requested_bit, pdTRUE, pdFALSE, portMAX_DELAY);
+        while (true) {
+            EventBits_t bits = xEventGroupWaitBits(_event_group, _exit_requested_bit, pdTRUE, pdFALSE, pdMS_TO_TICKS(100));
+            if (bits & _exit_requested_bit) {
+                break;
+            }
+            if (gpio_get_level(GPIO_NUM_2) == 0) {
+                vTaskDelay(pdMS_TO_TICKS(200));
+                break;
+            }
+        }
 
         stop();
 
