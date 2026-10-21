@@ -18,18 +18,29 @@ public:
     using BrightnessCallback = std::function<void(uint8_t brightness)>;
     using VolumeCallback = std::function<void(uint8_t volume)>;
 
+    using UIVisibleCallback = std::function<void(bool visible)>;
+    using ActionCallback = std::function<void()>;
+
     static WatchPageManager& GetInstance();
 
     void Init(lv_obj_t* muse_screen,
               HapticCallback haptic_cb,
               BatteryCallback bat_cb,
               BrightnessCallback br_cb,
-              VolumeCallback vol_cb);
+              VolumeCallback vol_cb,
+              UIVisibleCallback ui_cb = nullptr,
+              ActionCallback start_chat_cb = nullptr,
+              ActionCallback stop_chat_cb = nullptr);
 
     void SetImuAccel(float ax, float ay, float az);
     bool HandleBack();
-    void SwitchToMuse();
+    void SwitchToXiaoZhi();
+    void SwitchToMuse() { SwitchToXiaoZhi(); }
+    void SwitchToLauncher();
     void SwitchToWatchFace();
+    void TogglePage();
+    bool IsInXiaoZhi() const;
+    bool IsInMuse() const { return IsInXiaoZhi(); }
 
 private:
     WatchPageManager() = default;
@@ -38,7 +49,12 @@ private:
     BatteryCallback bat_cb_;
     BrightnessCallback br_cb_;
     VolumeCallback vol_cb_;
-    bool is_in_muse_ = false;
+    UIVisibleCallback ui_cb_;
+    ActionCallback start_chat_cb_;
+    ActionCallback stop_chat_cb_;
+    int launcher_app_id_ = -1;
+    int watchface_app_id_ = -1;
+    int xiaozhi_app_id_ = -1;
 };
 
 #endif // WATCH_APPS_H

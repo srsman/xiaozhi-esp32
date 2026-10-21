@@ -86,6 +86,24 @@ public:
         return muse_avatar_.get();
     }
 
+    void SetMuseUIVisible(bool visible) {
+        DisplayLockGuard lock(this);
+        if (container_ != nullptr) {
+            if (visible) {
+                lv_obj_clear_flag(container_, LV_OBJ_FLAG_HIDDEN);
+            } else {
+                lv_obj_add_flag(container_, LV_OBJ_FLAG_HIDDEN);
+            }
+        }
+        if (muse_avatar_ && muse_avatar_->GetRingObject()) {
+            if (visible) {
+                lv_obj_clear_flag(muse_avatar_->GetRingObject(), LV_OBJ_FLAG_HIDDEN);
+            } else {
+                lv_obj_add_flag(muse_avatar_->GetRingObject(), LV_OBJ_FLAG_HIDDEN);
+            }
+        }
+    }
+
     void SetStatus(const char* status) override {
         const char* zh_status = status;
         if (status != nullptr) {
@@ -289,6 +307,22 @@ public:
         muse_avatar_ = std::make_unique<MuseAvatar>(emoji_box_, 280, DISPLAY_WIDTH);
         if (touch_cb_) {
             muse_avatar_->OnTouch(touch_cb_);
+        }
+        muse_avatar_->OnGesture([](lv_dir_t dir) {
+            if (dir == LV_DIR_LEFT || dir == LV_DIR_RIGHT) {
+                ESP_LOGI(TAG, "Swipe gesture on avatar -> SwitchToLauncher");
+                WatchPageManager::GetInstance().SwitchToLauncher();
+            }
+        });
+
+        if (container_ != nullptr) {
+            lv_obj_add_event_cb(container_, [](lv_event_t* e) {
+                lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_active());
+                if (dir == LV_DIR_LEFT || dir == LV_DIR_RIGHT) {
+                    ESP_LOGI(TAG, "Swipe gesture on container -> SwitchToLauncher");
+                    WatchPageManager::GetInstance().SwitchToLauncher();
+                }
+            }, LV_EVENT_GESTURE, NULL);
         }
 
         // 3. 圆屏文字布局适配
@@ -519,6 +553,10 @@ private:
         if (!touch_indev_) return;
         lv_indev_set_type(touch_indev_, LV_INDEV_TYPE_POINTER);
         lv_indev_set_user_data(touch_indev_, this);
+        static int16_t s_touch_start_x = -1;
+        static int16_t s_touch_start_y = -1;
+        static bool s_gesture_handled = false;
+
         lv_indev_set_read_cb(touch_indev_, [](lv_indev_t* indev, lv_indev_data_t* data) {
             data->state = LV_INDEV_STATE_RELEASED;
             auto* self = static_cast<M5StackStopwatchBoard*>(lv_indev_get_user_data(indev));
@@ -534,7 +572,39 @@ private:
                     data->point.x = x;
                     data->point.y = y;
                     data->state = LV_INDEV_STATE_PRESSED;
+
+                    // 追踪滑动位移，提供硬件级手势捕获
+                    if (s_touch_start_x < 0) {
+                        s_touch_start_x = x;
+                        s_touch_start_y = y;
+                        s_gesture_handled = false;
+                    } else if (!s_gesture_handled) {
+                        int16_t dx = x - s_touch_start_x;
+                        int16_t dy = y - s_touch_start_y;
+                        int16_t abs_dy = (dy > 0) ? dy : -dy;
+
+                        // 向左滑动：dx < -50 且横向位移主导
+                        if (dx < -50 && abs_dy < 80) {
+                            s_gesture_handled = true;
+                            ESP_LOGI(TAG, "Touch Swipe LEFT detected (dx=%d)", dx);
+                            if (WatchPageManager::GetInstance().IsInXiaoZhi()) {
+                                WatchPageManager::GetInstance().SwitchToLauncher();
+                            }
+                        }
+                        // 向右滑动：dx > 50
+                        else if (dx > 50 && abs_dy < 80) {
+                            s_gesture_handled = true;
+                            ESP_LOGI(TAG, "Touch Swipe RIGHT detected (dx=%d)", dx);
+                            if (WatchPageManager::GetInstance().IsInXiaoZhi()) {
+                                WatchPageManager::GetInstance().SwitchToLauncher();
+                            }
+                        }
+                    }
                 }
+            } else {
+                s_touch_start_x = -1;
+                s_touch_start_y = -1;
+                s_gesture_handled = false;
             }
         });
     }
@@ -604,17 +674,25 @@ private:
     }
 
     void InitializeButtons() {
-        // Button1: 如果在子页面（表盘/秒表），充当 Home 键返回小智主屏；在主屏时唤醒/切换对话
+        // Button1: 单击一律退回 Launcher 桌面
         button1_.OnClick([this]() {
-            if (WatchPageManager::GetInstance().HandleBack()) {
-                return;
-            }
             auto& app = Application::GetInstance();
             if (app.GetDeviceState() == kDeviceStateStarting && !WifiManager::GetInstance().IsConnected()) {
                 EnterWifiConfigMode();
                 return;
             }
-            app.ToggleChatState();
+
+            WatchPageManager::GetInstance().SwitchToLauncher();
+        });
+
+        // Button1 长按：快速唤起小智对话
+        button1_.OnLongPress([this]() {
+            ioe_.digitalWrite(IOE_PIN_MOTOR, HIGH);
+            vTaskDelay(pdMS_TO_TICKS(50));
+            ioe_.digitalWrite(IOE_PIN_MOTOR, LOW);
+
+            ESP_LOGI(TAG, "Button1 LongPress -> SwitchToXiaoZhi");
+            WatchPageManager::GetInstance().SwitchToXiaoZhi();
         });
 
         // Button2: 待机时循环切换 12 个互动动作，对话时调音量
@@ -706,7 +784,7 @@ public:
     M5StackStopwatchBoard()
         : shared_i2c_bus_(nullptr),
           i2c_bus_(nullptr),
-          button1_(BUTTON1_GPIO),
+          button1_(BUTTON1_GPIO, false, 800),
           button2_(BUTTON2_GPIO),
           display_(nullptr),
           backlight_(nullptr) {
@@ -801,6 +879,17 @@ public:
                 [this](uint8_t vol) {
                     auto* codec = GetAudioCodec();
                     if (codec) codec->SetOutputVolume(vol);
+                },
+                [this](bool visible) {
+                    if (display_) {
+                        display_->SetMuseUIVisible(visible);
+                    }
+                },
+                []() {
+                    Application::GetInstance().ToggleChatState();
+                },
+                []() {
+                    Application::GetInstance().AbortSpeaking(kAbortReasonNone);
                 }
             );
         }

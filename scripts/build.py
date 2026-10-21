@@ -1603,15 +1603,16 @@ def build_board(
         ]
         build_option_sdkconfig: list[str] = []
         selected_build_options: Optional[dict[str, object]] = None
-        selected_language, option = _language_sdkconfig_option(
-            _DEFAULT_LANGUAGE if language is None else language
-        )
+        configured_lang = build.get("language") or cfg.get("language")
+        resolved_lang = language if language is not None else (configured_lang or _DEFAULT_LANGUAGE)
+        selected_language, option = _language_sdkconfig_option(resolved_lang)
         user_options.append(option)
         validation_symbols.append(
             ([option.split("=", 1)[0]], "--language")
         )
         wake_word_supported = _board_supports_wake_word(target, sdkconfig_append)
-        requested_wake_word = wake_word
+        configured_wake_word = build.get("wake_word") or cfg.get("wake_word")
+        requested_wake_word = wake_word if wake_word is not None else configured_wake_word
         if requested_wake_word is None:
             requested_wake_word = "disabled"
             if wake_word_supported:

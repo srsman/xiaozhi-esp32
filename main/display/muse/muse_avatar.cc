@@ -132,6 +132,7 @@ void MuseAvatar::TouchEventCallback(lv_event_t* e) {
             self->TriggerAction(MUSE_ACTION_POKE, 1.8f);
         }
         if (self->touch_cb_) self->touch_cb_();
+        if (self->gesture_cb_) self->gesture_cb_(dir);
     } else if (code == LV_EVENT_LONG_PRESSED) {
         // 长按屏幕：揉眼困倦打瞌睡
         self->TriggerAction(MUSE_ACTION_SLEEPY, 3.0f);
@@ -414,4 +415,8 @@ void MuseAvatar::SetVisible(bool visible) {
 
 void MuseAvatar::OnTouch(TouchCallback cb) {
     touch_cb_ = std::move(cb);
+}
+
+void MuseAvatar::OnGesture(GestureCallback cb) {
+    gesture_cb_ = std::move(cb);
 }

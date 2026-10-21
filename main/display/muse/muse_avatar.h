@@ -12,6 +12,7 @@
 class MuseAvatar {
 public:
     using TouchCallback = std::function<void()>;
+    using GestureCallback = std::function<void(lv_dir_t)>;
 
     explicit MuseAvatar(lv_obj_t* parent, int size_px = 280, int screen_diameter = 466);
     ~MuseAvatar();
@@ -24,6 +25,7 @@ public:
     void TriggerAction(muse_action_t action, float duration = 2.0f);
     void SetVisible(bool visible);
     void OnTouch(TouchCallback cb);
+    void OnGesture(GestureCallback cb);
 
     inline lv_obj_t* GetObject() const { return image_obj_; }
     inline lv_obj_t* GetRingObject() const { return ring_obj_; }
@@ -60,6 +62,7 @@ private:
     uint32_t last_click_ms_ = 0;
 
     TouchCallback touch_cb_ = nullptr;
+    GestureCallback gesture_cb_ = nullptr;
 };
 
 #endif // MUSE_AVATAR_H

@@ -13,6 +13,7 @@
 #include <sys/time.h>
 #include <cmath>
 #include <cstring>
+#include <driver/gpio.h>
 
 static const char* TAG = "HAL_Bridge";
 
@@ -284,9 +285,11 @@ void Hal::stopAlarm() {
 }
 
 void Hal::updateButtonStates() {
-    btnA.setRawState(millis(), btnA.isPressed());
-    btnB.setRawState(millis(), btnB.isPressed());
-    btnPwr.setRawState(millis(), btnPwr.isPressed());
+    bool a_pressed = (gpio_get_level(GPIO_NUM_2) == 0);
+    bool b_pressed = (gpio_get_level(GPIO_NUM_1) == 0);
+    btnA.setRawState(millis(), a_pressed);
+    btnB.setRawState(millis(), b_pressed);
+    btnPwr.setRawState(millis(), false);
 }
 
 void Hal::setButtonConfig(ButtonConfig config, bool saveToSettings) {
