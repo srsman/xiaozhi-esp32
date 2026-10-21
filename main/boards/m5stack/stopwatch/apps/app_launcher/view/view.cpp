@@ -123,7 +123,7 @@ public:
         // Create floating label
         _label = std::make_unique<Label>(parent);
         _label->setTextColor(lv_color_hex(0xFFFFFF));
-        _label->setTextFont(&MontserratSemiBold26);
+        _label->setTextFont(&font_chinese_26);
         _label->setAlign(LV_ALIGN_CENTER);
         _label->addFlag(LV_OBJ_FLAG_FLOATING);
         _label->setOpa(255);
@@ -200,6 +200,20 @@ static int _last_clicked_icon_pos_x = -1;
 static std::unique_ptr<PageIndicator> _page_indicator;
 static std::unique_ptr<DynamicIconLabel> _dynamic_icon_label;
 
+static std::string get_chinese_app_name(const std::string& name) {
+    if (name == "WatchFace" || name == "表盘") return "表盘";
+    if (name == "XiaoZhi" || name == "小智") return "小智";
+    if (name == "Stopwatch" || name == "秒表") return "秒表";
+    if (name == "AlarmClock" || name == "闹钟") return "闹钟";
+    if (name == "LuckyWheel" || name == "幸运转盘") return "幸运转盘";
+    if (name == "Audio.FFT" || name == "FFT" || name == "音乐频谱") return "音乐频谱";
+    if (name == "Badge" || name == "胸牌") return "胸牌";
+    if (name == "Settings" || name == "Setup" || name == "设置") return "设置";
+    if (name == "IMU" || name == "水平仪") return "水平仪";
+    if (name == "FluidBox" || name == "流体小球") return "流体小球";
+    return name;
+}
+
 LauncherView::~LauncherView()
 {
     _icon_images.clear();
@@ -260,7 +274,7 @@ void LauncherView::init(std::vector<mooncake::AppProps_t> appPorps)
             });
 
             // Keep track of data for helpers
-            icon_label_texts.push_back(props.info.name);
+            icon_label_texts.push_back(get_chinese_app_name(props.info.name));
 
             uint32_t color = 0xDADADA;
             if (props.info.userData != nullptr) {

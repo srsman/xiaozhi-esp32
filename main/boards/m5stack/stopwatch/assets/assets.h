@@ -26,6 +26,7 @@
 #endif
 
 LV_FONT_DECLARE(MontserratSemiBold26);
+LV_FONT_DECLARE(font_chinese_26);
 LV_FONT_DECLARE(CommissionerMedium64);
 LV_FONT_DECLARE(CommissionerMedium108);
 LV_FONT_DECLARE(lv_font_maple_mono_medium_24);
@@ -40,6 +41,7 @@ LV_IMG_DECLARE(icon_imu);
 LV_IMG_DECLARE(icon_fft);
 LV_IMG_DECLARE(icon_stopwatch);
 LV_IMG_DECLARE(icon_badge);
+LV_IMG_DECLARE(icon_xiaozhi);
 LV_IMG_DECLARE(icon_lucky_wheel);
 LV_IMG_DECLARE(icon_watch_face);
 LV_IMG_DECLARE(fluidbox_icon);

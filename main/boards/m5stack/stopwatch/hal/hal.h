@@ -326,7 +326,7 @@ private:
     ButtonConfig _btn_config;
     AudioSpectrumFrame _audio_spectrum;
     int _bl_brightness = 80;
-    int _spk_volume    = 80;
+    int _spk_volume    = 100;
 
     void i2c_init();
     void i2c_detect();

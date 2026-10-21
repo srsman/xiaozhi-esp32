@@ -21,8 +21,8 @@ void AppXiaoZhi::SetCallbacks(VisibleCallback vis_cb, ActionCallback start_chat_
 }
 
 AppXiaoZhi::AppXiaoZhi() {
-    setAppInfo().name = "XiaoZhi";
-    setAppInfo().icon = (void*)&icon_badge;
+    setAppInfo().name = "小智";
+    setAppInfo().icon = (void*)&icon_xiaozhi;
 }
 
 void AppXiaoZhi::onCreate() {

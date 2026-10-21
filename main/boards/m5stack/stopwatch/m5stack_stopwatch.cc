@@ -916,7 +916,7 @@ public:
         );
         HalBridgeHooks::SetVolumeCallbacks(
             [](int v) { if (s_self) { auto* c = s_self->GetAudioCodec(); if (c) c->SetOutputVolume(v); } },
-            []() -> int { if (s_self) { auto* c = s_self->GetAudioCodec(); return c ? c->output_volume() : 80; } return 80; }
+            []() -> int { if (s_self) { auto* c = s_self->GetAudioCodec(); return c ? c->output_volume() : 100; } return 100; }
         );
         HalBridgeHooks::SetBatteryCallbacks(
             []() -> int { if (s_self) { int l = 100; bool c = false, d = false; s_self->GetBatteryLevel(l, c, d); return l; } return 100; },
@@ -961,6 +961,11 @@ public:
                     Application::GetInstance().AbortSpeaking(kAbortReasonNone);
                 }
             );
+        }
+
+        auto* codec = GetAudioCodec();
+        if (codec) {
+            codec->SetOutputVolume(100);
         }
     }
 
