@@ -15,10 +15,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: ${{ runner.os }}-ccache-${{ hashFiles('**/CMakeLists.txt', '**/Kconfig*') }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-
+
       - name: Build StopWatch Firmware
         shell: bash
+        env:
+          CCACHE_DIR: ${{ github.workspace }}/.ccache
+          CCACHE_MAXSIZE: 1.5G
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          mkdir -p "$CCACHE_DIR"
           source "$IDF_PATH/export.sh"
           python scripts/build.py m5stack/stopwatch --name m5stack-stopwatch --language zh-CN
 

@@ -708,7 +708,7 @@ private:
     }
 
     void InitializeButtons() {
-        // Button1: 单击一律退回 Launcher 桌面
+        // Button1: 单击一律退回 Launcher 桌面 (方案 B: 统一全局退出)
         button1_.OnClick([this]() {
             auto& app = Application::GetInstance();
             if (app.GetDeviceState() == kDeviceStateStarting && !WifiManager::GetInstance().IsConnected()) {
@@ -729,45 +729,60 @@ private:
             WatchPageManager::GetInstance().SwitchToXiaoZhi();
         });
 
-        // Button2: 待机时循环切换 12 个互动动作，对话时调音量
+        // Button2 单击 (方案 B):
+        // 1. 若在小智应用内：小智专属控制键 (正在说话则打断，聆听则提交，待命则开始对话)
+        // 2. 若在其他界面：调节音量
         button2_.OnClick([this]() {
             auto& app = Application::GetInstance();
-            if (app.GetDeviceState() == kDeviceStateIdle) {
-                if (display_ && display_->GetMuseAvatar()) {
-                    static int s_action_idx = 0;
-                    static const muse_action_t ACTIONS[] = {
-                        MUSE_ACTION_HAPPY,
-                        MUSE_ACTION_WAVE,
-                        MUSE_ACTION_POKE,
-                        MUSE_ACTION_EXCITED,
-                        MUSE_ACTION_KISS,
-                        MUSE_ACTION_SHY,
-                        MUSE_ACTION_SNEEZE,
-                        MUSE_ACTION_SULKY,
-                        MUSE_ACTION_DIZZY,
-                        MUSE_ACTION_SHOCKED,
-                        MUSE_ACTION_SAD,
-                        MUSE_ACTION_SLEEPY,
-                    };
-                    display_->GetMuseAvatar()->TriggerAction(ACTIONS[s_action_idx], 2.2f);
-                    s_action_idx = (s_action_idx + 1) % 12;
-                    ioe_.digitalWrite(IOE_PIN_MOTOR, HIGH);
-                    vTaskDelay(pdMS_TO_TICKS(40));
-                    ioe_.digitalWrite(IOE_PIN_MOTOR, LOW);
-                    return;
+            bool in_xiaozhi = WatchPageManager::GetInstance().IsInXiaoZhi();
+
+            if (in_xiaozhi) {
+                // 震动反馈
+                ioe_.digitalWrite(IOE_PIN_MOTOR, HIGH);
+                vTaskDelay(pdMS_TO_TICKS(40));
+                ioe_.digitalWrite(IOE_PIN_MOTOR, LOW);
+
+                DeviceState state = app.GetDeviceState();
+                if (state == kDeviceStateSpeaking) {
+                    ESP_LOGI(TAG, "Button2 Click in XiaoZhi -> AbortSpeaking");
+                    app.AbortSpeaking(kAbortReasonNone);
+                } else {
+                    ESP_LOGI(TAG, "Button2 Click in XiaoZhi -> ToggleChatState (state=%d)", (int)state);
+                    app.ToggleChatState();
                 }
+                return;
             }
+
+            // 在小智应用外：调节音量
             auto* codec = GetAudioCodec();
             int volume = codec->output_volume() + 10;
             if (volume > 100) {
-                volume = 0;
+                volume = 20;
             }
             codec->SetOutputVolume(volume);
             GetDisplay()->ShowNotification(std::string(Lang::Strings::VOLUME) + ":" + std::to_string(volume) + "%");
         });
 
-        // Button2 长按：触发截图并输出至串口
+        // Button2 长按 (方案 B):
+        // 1. 若在小智应用内：调节音量
+        // 2. 若在其他应用内：触发截图
         button2_.OnLongPress([this]() {
+            bool in_xiaozhi = WatchPageManager::GetInstance().IsInXiaoZhi();
+            if (in_xiaozhi) {
+                ioe_.digitalWrite(IOE_PIN_MOTOR, HIGH);
+                vTaskDelay(pdMS_TO_TICKS(40));
+                ioe_.digitalWrite(IOE_PIN_MOTOR, LOW);
+
+                auto* codec = GetAudioCodec();
+                int volume = codec->output_volume() + 15;
+                if (volume > 100) {
+                    volume = 20;
+                }
+                codec->SetOutputVolume(volume);
+                GetDisplay()->ShowNotification(std::string(Lang::Strings::VOLUME) + ":" + std::to_string(volume) + "%");
+                return;
+            }
+
             TriggerScreenshot();
         });
     }
