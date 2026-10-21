@@ -87,7 +87,7 @@ void AppBadge::onRunning()
             loading_page->setMessage("Starting WiFi AP...\nPlease wait a moment");
 
             GetHAL().lvglUnlock();
-            vTaskDelay(pdMS_TO_TICKS(50));
+            GetHAL().delay(50);
 
             GetHAL().startBadgeEditModeViaAp([&](std::string_view msg) {
                 LvglLockGuard lock;
