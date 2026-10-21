@@ -112,6 +112,31 @@ public:
         if (muse_avatar_) {
             muse_avatar_->SetVisible(visible);
         }
+
+        if (visible) {
+            auto& app = Application::GetInstance();
+            DeviceState state = app.GetDeviceState();
+            if (WifiManager::GetInstance().IsConnected()) {
+                if (state == kDeviceStateListening) {
+                    SetStatus("聆听中...");
+                    if (muse_avatar_) muse_avatar_->SetMode(MUSE_MODE_LISTENING);
+                } else if (state == kDeviceStateSpeaking) {
+                    SetStatus("说话中...");
+                    if (muse_avatar_) muse_avatar_->SetMode(MUSE_MODE_SPEAKING);
+                } else if (state == kDeviceStateConnecting) {
+                    SetStatus("连接中...");
+                    if (muse_avatar_) muse_avatar_->SetMode(MUSE_MODE_THINKING);
+                } else {
+                    SetStatus("待命");
+                    SetChatMessage("system", "");
+                    if (muse_avatar_) muse_avatar_->SetMode(MUSE_MODE_IDLE);
+                }
+            } else {
+                SetStatus("连接中...");
+                SetChatMessage("system", "");
+                if (muse_avatar_) muse_avatar_->SetMode(MUSE_MODE_THINKING);
+            }
+        }
     }
 
     void SetStatus(const char* status) override {
@@ -127,7 +152,8 @@ public:
                 zh_status = "连接中...";
             } else if (strstr(status, "Thinking") || strstr(status, "thinking")) {
                 zh_status = "思考中...";
-            } else if (strstr(status, "Wi-Fi Config") || strstr(status, "WiFi Config") || strstr(status, "Config")) {
+            } else if (strstr(status, "Wi-Fi Config") || strstr(status, "WiFi Config") ||
+                       (strstr(status, "Config") && !WifiManager::GetInstance().IsConnected())) {
                 zh_status = "配网模式";
             } else if (strstr(status, "Initializing") || strstr(status, "initializing")) {
                 zh_status = "初始化...";
@@ -708,14 +734,8 @@ private:
     }
 
     void InitializeButtons() {
-        // Button1: 单击一律退回 Launcher 桌面 (方案 B: 统一全局退出)
+        // Button1: 单击一律退回 Launcher 桌面 (方案 B: 统一全局退出，绝不误触发配网)
         button1_.OnClick([this]() {
-            auto& app = Application::GetInstance();
-            if (app.GetDeviceState() == kDeviceStateStarting && !WifiManager::GetInstance().IsConnected()) {
-                EnterWifiConfigMode();
-                return;
-            }
-
             WatchPageManager::GetInstance().SwitchToLauncher();
         });
 

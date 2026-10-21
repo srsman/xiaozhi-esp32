@@ -37,10 +37,6 @@ void AppXiaoZhi::onOpen() {
     if (s_vis_cb) {
         s_vis_cb(true);
     }
-    // 启动语音交互
-    if (s_start_chat_cb) {
-        s_start_chat_cb();
-    }
 }
 
 void AppXiaoZhi::onRunning() {
