@@ -136,9 +136,12 @@ public:
             }
         }
         SpiLcdDisplay::SetStatus(zh_status);
-        if (!is_muse_ui_visible_ && status_bar_) {
+        if (!is_muse_ui_visible_) {
             DisplayLockGuard lock(this);
-            lv_obj_add_flag(status_bar_, LV_OBJ_FLAG_HIDDEN);
+            if (status_bar_) lv_obj_add_flag(status_bar_, LV_OBJ_FLAG_HIDDEN);
+            if (container_) lv_obj_add_flag(container_, LV_OBJ_FLAG_HIDDEN);
+            if (emoji_box_) lv_obj_add_flag(emoji_box_, LV_OBJ_FLAG_HIDDEN);
+            if (muse_avatar_) muse_avatar_->SetVisible(false);
         }
         if (!muse_avatar_ || !status) return;
 
@@ -163,9 +166,11 @@ public:
             zh_notify = "音量: " + zh_notify.substr(zh_notify.find("Volume:") + 7);
         }
         SpiLcdDisplay::ShowNotification(zh_notify, duration_ms);
-        if (!is_muse_ui_visible_ && notification_label_) {
+        if (!is_muse_ui_visible_) {
             DisplayLockGuard lock(this);
-            lv_obj_add_flag(notification_label_, LV_OBJ_FLAG_HIDDEN);
+            if (notification_label_) lv_obj_add_flag(notification_label_, LV_OBJ_FLAG_HIDDEN);
+            if (container_) lv_obj_add_flag(container_, LV_OBJ_FLAG_HIDDEN);
+            if (muse_avatar_) muse_avatar_->SetVisible(false);
         }
     }
 
@@ -179,9 +184,11 @@ public:
             zh_content = "手机连接热点 " + ssid + "\n浏览器访问 " + url;
         }
         SpiLcdDisplay::SetChatMessage(role, zh_content.c_str());
-        if (!is_muse_ui_visible_ && content_) {
+        if (!is_muse_ui_visible_) {
             DisplayLockGuard lock(this);
-            lv_obj_add_flag(content_, LV_OBJ_FLAG_HIDDEN);
+            if (content_) lv_obj_add_flag(content_, LV_OBJ_FLAG_HIDDEN);
+            if (container_) lv_obj_add_flag(container_, LV_OBJ_FLAG_HIDDEN);
+            if (muse_avatar_) muse_avatar_->SetVisible(false);
         }
     }
 
@@ -195,8 +202,10 @@ public:
         if (emoji_image_ != nullptr) {
             lv_obj_add_flag(emoji_image_, LV_OBJ_FLAG_HIDDEN);
         }
-        if (!is_muse_ui_visible_ && emoji_box_) {
-            lv_obj_add_flag(emoji_box_, LV_OBJ_FLAG_HIDDEN);
+        if (!is_muse_ui_visible_) {
+            if (emoji_box_) lv_obj_add_flag(emoji_box_, LV_OBJ_FLAG_HIDDEN);
+            if (container_) lv_obj_add_flag(container_, LV_OBJ_FLAG_HIDDEN);
+            if (muse_avatar_) muse_avatar_->SetVisible(false);
         }
 
         if (!muse_avatar_ || !emotion) return;

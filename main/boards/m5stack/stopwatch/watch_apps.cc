@@ -122,6 +122,7 @@ void WatchPageManager::SwitchToXiaoZhi() {
         }
         GetMooncake().openApp(xiaozhi_app_id_);
         GetHAL().lvglUnlock();
+    }
     if (ui_cb_) {
         ui_cb_(true);
     }
