@@ -64,7 +64,7 @@ namespace HalBridgeHooks {
     }
 }
 
-#include "utils/wear_levelling/wear_levelling.h"
+#include "utils/wear_levelling/wear_levelling_fs.h"
 
 void Hal::init() {
     ESP_LOGI(TAG, "Hal init");

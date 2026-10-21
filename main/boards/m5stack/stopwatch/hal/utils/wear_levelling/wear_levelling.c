@@ -10,14 +10,16 @@
    flash wear levelling library.
 */
 
-#include "wear_levelling.h"
+#include "wear_levelling_fs.h"
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include "esp_vfs.h"
-#include "esp_vfs_fat.h"
-#include "esp_system.h"
+#include <esp_log.h>
+#include <esp_vfs.h>
+#include <esp_vfs_fat.h>
+#include <esp_system.h>
+#include <wear_levelling.h>
 
 #define EXAMPLE_MAX_CHAR_SIZE 128
 
