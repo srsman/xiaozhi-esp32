@@ -349,8 +349,8 @@ void Hal::startBadgeEditModeViaAp(std::function<void(std::string_view)> onLog) {
         delay(50);
         updateButtonStates();
         auto touch = getTouchPoint();
-        if (touch.num > 0 || isButton1Pressed() || isButton2Pressed()) {
-            while (getTouchPoint().num > 0 || isButton1Pressed() || isButton2Pressed()) {
+        if (touch.num > 0 || btnA.isPressed() || btnB.isPressed()) {
+            while (getTouchPoint().num > 0 || btnA.isPressed() || btnB.isPressed()) {
                 delay(30);
             }
             break;

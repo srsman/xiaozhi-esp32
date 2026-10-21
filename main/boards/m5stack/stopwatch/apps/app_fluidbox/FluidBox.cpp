@@ -17,6 +17,7 @@
 #include <math.h>
 #include <cmath>
 #include <string.h>
+#include <algorithm>
 using std::isfinite;
 
 namespace cfg = fluidbox_config;
