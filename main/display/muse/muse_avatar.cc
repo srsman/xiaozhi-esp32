@@ -403,13 +403,27 @@ void MuseAvatar::TriggerAction(muse_action_t action, float duration) {
 }
 
 void MuseAvatar::SetVisible(bool visible) {
-    if (!image_obj_) return;
-    if (visible) {
-        lv_obj_remove_flag(image_obj_, LV_OBJ_FLAG_HIDDEN);
-        if (ring_obj_) lv_obj_remove_flag(ring_obj_, LV_OBJ_FLAG_HIDDEN);
-    } else {
-        lv_obj_add_flag(image_obj_, LV_OBJ_FLAG_HIDDEN);
-        if (ring_obj_) lv_obj_add_flag(ring_obj_, LV_OBJ_FLAG_HIDDEN);
+    if (image_obj_) {
+        if (visible) {
+            lv_obj_remove_flag(image_obj_, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_obj_add_flag(image_obj_, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+    if (ring_obj_) {
+        if (visible) {
+            lv_obj_remove_flag(ring_obj_, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_obj_add_flag(ring_obj_, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+    if (render_timer_) {
+        if (visible) {
+            lv_timer_resume(render_timer_);
+            mode_start_us_ = esp_timer_get_time();
+        } else {
+            lv_timer_pause(render_timer_);
+        }
     }
 }
 

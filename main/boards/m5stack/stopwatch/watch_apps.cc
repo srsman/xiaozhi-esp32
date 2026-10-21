@@ -122,11 +122,16 @@ void WatchPageManager::SwitchToXiaoZhi() {
         }
         GetMooncake().openApp(xiaozhi_app_id_);
         GetHAL().lvglUnlock();
+    if (ui_cb_) {
+        ui_cb_(true);
     }
     ESP_LOGI(TAG, "Switched to XiaoZhi app");
 }
 
 void WatchPageManager::SwitchToLauncher() {
+    if (ui_cb_) {
+        ui_cb_(false);
+    }
     if (launcher_app_id_ < 0) {
         return;
     }
@@ -145,6 +150,9 @@ void WatchPageManager::SwitchToLauncher() {
 }
 
 void WatchPageManager::SwitchToWatchFace() {
+    if (ui_cb_) {
+        ui_cb_(false);
+    }
     if (watchface_app_id_ < 0) {
         SwitchToLauncher();
         return;

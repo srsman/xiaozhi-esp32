@@ -86,21 +86,31 @@ public:
         return muse_avatar_.get();
     }
 
+    bool is_muse_ui_visible_ = true;
+
     void SetMuseUIVisible(bool visible) {
         DisplayLockGuard lock(this);
-        if (container_ != nullptr) {
-            if (visible) {
-                lv_obj_clear_flag(container_, LV_OBJ_FLAG_HIDDEN);
-            } else {
-                lv_obj_add_flag(container_, LV_OBJ_FLAG_HIDDEN);
+        is_muse_ui_visible_ = visible;
+
+        auto apply_flag = [visible](lv_obj_t* obj) {
+            if (obj != nullptr) {
+                if (visible) {
+                    lv_obj_remove_flag(obj, LV_OBJ_FLAG_HIDDEN);
+                } else {
+                    lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
+                }
             }
-        }
-        if (muse_avatar_ && muse_avatar_->GetRingObject()) {
-            if (visible) {
-                lv_obj_clear_flag(muse_avatar_->GetRingObject(), LV_OBJ_FLAG_HIDDEN);
-            } else {
-                lv_obj_add_flag(muse_avatar_->GetRingObject(), LV_OBJ_FLAG_HIDDEN);
-            }
+        };
+
+        apply_flag(container_);
+        apply_flag(emoji_box_);
+        apply_flag(top_bar_);
+        apply_flag(status_bar_);
+        apply_flag(content_);
+        apply_flag(preview_image_);
+
+        if (muse_avatar_) {
+            muse_avatar_->SetVisible(visible);
         }
     }
 
@@ -126,6 +136,10 @@ public:
             }
         }
         SpiLcdDisplay::SetStatus(zh_status);
+        if (!is_muse_ui_visible_ && status_bar_) {
+            DisplayLockGuard lock(this);
+            lv_obj_add_flag(status_bar_, LV_OBJ_FLAG_HIDDEN);
+        }
         if (!muse_avatar_ || !status) return;
 
         if (std::strcmp(status, Lang::Strings::CONNECTING) == 0 ||
@@ -149,6 +163,10 @@ public:
             zh_notify = "音量: " + zh_notify.substr(zh_notify.find("Volume:") + 7);
         }
         SpiLcdDisplay::ShowNotification(zh_notify, duration_ms);
+        if (!is_muse_ui_visible_ && notification_label_) {
+            DisplayLockGuard lock(this);
+            lv_obj_add_flag(notification_label_, LV_OBJ_FLAG_HIDDEN);
+        }
     }
 
     void SetChatMessage(const char* role, const char* content) override {
@@ -161,6 +179,10 @@ public:
             zh_content = "手机连接热点 " + ssid + "\n浏览器访问 " + url;
         }
         SpiLcdDisplay::SetChatMessage(role, zh_content.c_str());
+        if (!is_muse_ui_visible_ && content_) {
+            DisplayLockGuard lock(this);
+            lv_obj_add_flag(content_, LV_OBJ_FLAG_HIDDEN);
+        }
     }
 
     void SetEmotion(const char* emotion) override {
@@ -172,6 +194,9 @@ public:
         }
         if (emoji_image_ != nullptr) {
             lv_obj_add_flag(emoji_image_, LV_OBJ_FLAG_HIDDEN);
+        }
+        if (!is_muse_ui_visible_ && emoji_box_) {
+            lv_obj_add_flag(emoji_box_, LV_OBJ_FLAG_HIDDEN);
         }
 
         if (!muse_avatar_ || !emotion) return;
