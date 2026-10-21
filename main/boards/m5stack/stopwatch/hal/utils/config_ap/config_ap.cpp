@@ -115,6 +115,8 @@ public:
 
     bool run()
     {
+        log("Starting WiFi AP...\nPlease wait");
+
         if (!ensure_wifi_stack_ready()) {
             log("Wi-Fi initialization failed");
             return false;
@@ -131,16 +133,28 @@ public:
             return false;
         }
 
-        log("Connect to Wi-Fi: " + _ssid + "\nAnd open page:\n" + std::string(_ap_url) + "\n\nPress Button 1 to exit");
+        log("Badge AP Ready!\n\nWiFi: " + _ssid + "\nNo Password\n\nOpen Browser:\n" + std::string(_ap_url) + "\n\nPress Button to exit");
+
+        // Allow at least 1.5 seconds cooldown before accepting exit button to prevent false trigger
+        const int64_t start_time = esp_timer_get_time();
+        int btn_down_count = 0;
 
         while (true) {
             EventBits_t bits = xEventGroupWaitBits(_event_group, _exit_requested_bit, pdTRUE, pdFALSE, pdMS_TO_TICKS(100));
             if (bits & _exit_requested_bit) {
                 break;
             }
-            if (gpio_get_level(GPIO_NUM_2) == 0) {
-                vTaskDelay(pdMS_TO_TICKS(200));
-                break;
+
+            int64_t now = esp_timer_get_time();
+            if (now - start_time > 1500000) { // after 1.5s
+                if (gpio_get_level(GPIO_NUM_2) == 0) {
+                    btn_down_count++;
+                    if (btn_down_count >= 2) {
+                        break;
+                    }
+                } else {
+                    btn_down_count = 0;
+                }
             }
         }
 
@@ -161,8 +175,12 @@ private:
 
     bool start_access_point()
     {
+        log("Initializing AP network...");
         if (_ap_netif == nullptr) {
-            _ap_netif = esp_netif_create_default_wifi_ap();
+            _ap_netif = esp_netif_get_handle_from_ifkey("WIFI_AP_DEF");
+            if (_ap_netif == nullptr) {
+                _ap_netif = esp_netif_create_default_wifi_ap();
+            }
         }
         if (_ap_netif == nullptr) {
             log("Failed to create AP network interface");
@@ -188,12 +206,11 @@ private:
         wifi_config.ap.max_connection = 4;
         wifi_config.ap.authmode       = WIFI_AUTH_OPEN;
 
-        esp_err_t ret = esp_wifi_stop();
-        if (ret != ESP_OK && ret != ESP_ERR_WIFI_NOT_STARTED && ret != ESP_ERR_WIFI_MODE) {
-            ESP_LOGW(_tag, "wifi stop before ap failed: %s", esp_err_to_name(ret));
+        // Use APSTA mode for seamless operation with XiaoZhi station stack
+        esp_err_t ret = esp_wifi_set_mode(WIFI_MODE_APSTA);
+        if (ret != ESP_OK) {
+            ret = esp_wifi_set_mode(WIFI_MODE_AP);
         }
-
-        ret = esp_wifi_set_mode(WIFI_MODE_AP);
         if (ret != ESP_OK) {
             log("Failed to set AP mode");
             return false;
@@ -205,15 +222,10 @@ private:
             return false;
         }
 
-        ret = esp_wifi_set_ps(WIFI_PS_NONE);
-        if (ret != ESP_OK) {
-            log("Failed to disable Wi-Fi power save");
-            return false;
-        }
-
+        esp_wifi_set_ps(WIFI_PS_NONE);
         ret = esp_wifi_start();
-        if (ret != ESP_OK) {
-            log("Failed to start AP");
+        if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
+            log("Failed to start Wi-Fi AP");
             return false;
         }
 
@@ -332,15 +344,9 @@ private:
             _dns_server.reset();
         }
 
-        esp_err_t ret = esp_wifi_stop();
-        if (ret != ESP_OK && ret != ESP_ERR_WIFI_NOT_STARTED && ret != ESP_ERR_WIFI_MODE) {
-            ESP_LOGW(_tag, "wifi stop failed: %s", esp_err_to_name(ret));
-        }
-
-        if (_ap_netif != nullptr) {
-            esp_netif_destroy_default_wifi(_ap_netif);
-            _ap_netif = nullptr;
-        }
+        wifi_config_t empty_ap = {};
+        esp_wifi_set_config(WIFI_IF_AP, &empty_ap);
+        esp_wifi_set_mode(WIFI_MODE_STA);
 
         if (_event_group != nullptr) {
             vEventGroupDelete(_event_group);

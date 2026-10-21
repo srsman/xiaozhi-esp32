@@ -240,150 +240,7 @@ bool load_badge_slot(lv_obj_t* image, std::size_t slot)
     return true;
 }
 
-/* -------------------------------------------------------------------------- */
-/*                       Built-in HD Geek Badges (466x466)                   */
-/* -------------------------------------------------------------------------- */
-static constexpr int _badge_w = 466;
-static constexpr int _badge_h = 466;
-static lv_image_dsc_t s_builtin_dsc[3] = {};
-static uint16_t* s_builtin_bufs[3]     = {nullptr, nullptr, nullptr};
-static size_t s_current_carousel_idx   = 0;
-
-static inline uint16_t rgb565(uint8_t r, uint8_t g, uint8_t b) {
-    return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
-}
-
-static void render_builtin_badge(size_t index)
-{
-    if (index >= _builtin_badge_count || s_builtin_bufs[index] != nullptr) {
-        return;
-    }
-
-    s_builtin_bufs[index] = (uint16_t*)heap_caps_malloc(_badge_w * _badge_h * sizeof(uint16_t),
-                                                        MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    if (!s_builtin_bufs[index]) {
-        return;
-    }
-
-    uint16_t* buf = s_builtin_bufs[index];
-    const int cx = _badge_w / 2;
-    const int cy = _badge_h / 2;
-
-    for (int y = 0; y < _badge_h; ++y) {
-        for (int x = 0; x < _badge_w; ++x) {
-            float dx = x - cx;
-            float dy = y - cy;
-            float dist = sqrtf(dx * dx + dy * dy);
-
-            uint8_t r = 0, g = 0, b = 0;
-
-            if (index == 0) {
-                // Badge 0: 小智 AI · 极客赛博工牌 (XiaoZhi Cyber Agent Badge)
-                float t = dist / 233.0f;
-                if (t > 1.0f) t = 1.0f;
-                // Deep dark cyber blue to midnight
-                r = (uint8_t)(8 * (1.0f - t * 0.7f));
-                g = (uint8_t)(24 * (1.0f - t * 0.8f));
-                b = (uint8_t)(48 * (1.0f - t * 0.8f));
-
-                // Glowing outer radar HUD ring
-                if (dist >= 210 && dist <= 214) {
-                    r = 0; g = 240; b = 255;
-                } else if (dist >= 190 && dist <= 191) {
-                    r = 0; g = 180; b = 200;
-                }
-                // Ticks around HUD
-                if (dist >= 200 && dist <= 208) {
-                    float angle = atan2f(dy, dx) * 180.0f / 3.14159f;
-                    int deg = (int)(angle + 360.0f) % 360;
-                    if (deg % 15 == 0) {
-                        r = 0; g = 255; b = 200;
-                    }
-                }
-                // Central badge card outline
-                if (dist >= 120 && dist <= 122) {
-                    r = 0; g = 255; b = 180;
-                }
-            } else if (index == 1) {
-                // Badge 1: 深空领航员 · 星际通行证 (Cosmic Navigator Pass)
-                float t = dist / 233.0f;
-                if (t > 1.0f) t = 1.0f;
-                // Nebula violet gradient
-                r = (uint8_t)(28 * (1.0f - t * 0.7f));
-                g = (uint8_t)(10 * (1.0f - t * 0.7f));
-                b = (uint8_t)(52 * (1.0f - t * 0.7f));
-
-                // Orbit rings
-                if (dist >= 212 && dist <= 214) {
-                    r = 255; g = 215; b = 0; // Golden border
-                }
-                if (dist >= 150 && dist <= 151) {
-                    r = 180; g = 120; b = 255;
-                }
-                if (dist >= 90 && dist <= 91) {
-                    r = 220; g = 180; b = 255;
-                }
-            } else {
-                // Badge 2: 极客骇客 · 数字矩阵 (Cyber Matrix Developer)
-                // Matrix dark green
-                r = 0;
-                g = (uint8_t)(18 * (1.0f - (dist / 233.0f) * 0.5f));
-                b = 8;
-
-                // Matrix grid lines
-                if ((x % 32 == 0 || y % 32 == 0) && dist < 215) {
-                    g += 18;
-                }
-                // Terminal green border
-                if (dist >= 210 && dist <= 213) {
-                    r = 0; g = 255; b = 100;
-                }
-                if (dist >= 130 && dist <= 132) {
-                    r = 0; g = 200; b = 80;
-                }
-            }
-
-            // Blit centered icons into badge
-            const lv_image_dsc_t* icon = (index == 0) ? &icon_xiaozhi : ((index == 1) ? &icon_badge : &icon_edit_badge);
-            if (icon && icon->data) {
-                int iw = icon->header.w;
-                int ih = icon->header.h;
-                int ix = x - (cx - iw / 2);
-                int iy = y - (cy - ih / 2);
-                if (ix >= 0 && ix < iw && iy >= 0 && iy < ih) {
-                    const uint8_t* p = icon->data + (iy * iw + ix) * 3;
-                    uint8_t ir = p[2], ig = p[1], ib = p[0];
-                    if (ir > 20 || ig > 20 || ib > 20) {
-                        r = ir; g = ig; b = ib;
-                    }
-                }
-            }
-
-            buf[y * _badge_w + x] = rgb565(r, g, b);
-        }
-    }
-
-    s_builtin_dsc[index].header.magic = LV_IMAGE_HEADER_MAGIC;
-    s_builtin_dsc[index].header.cf    = LV_COLOR_FORMAT_RGB565;
-    s_builtin_dsc[index].header.w     = _badge_w;
-    s_builtin_dsc[index].header.h     = _badge_h;
-    s_builtin_dsc[index].header.stride = _badge_w * 2;
-    s_builtin_dsc[index].data_size    = _badge_w * _badge_h * 2;
-    s_builtin_dsc[index].data         = (const uint8_t*)buf;
-}
-
-void load_builtin_badge(lv_obj_t* image, size_t index)
-{
-    if (index >= _builtin_badge_count) {
-        index = 0;
-    }
-    render_builtin_badge(index);
-    if (s_builtin_bufs[index]) {
-        lv_image_set_src(image, &s_builtin_dsc[index]);
-    } else {
-        lv_image_set_src(image, &icon_xiaozhi);
-    }
-}
+static size_t s_current_carousel_idx = 0;
 
 /* -------------------------------------------------------------------------- */
 /*                         Config AP Callback Handlers                        */
@@ -542,6 +399,46 @@ bool save_badge_upload(const badge::config_ap::UploadRequest& request, std::stri
 /* -------------------------------------------------------------------------- */
 /*                               HAL Implementations                          */
 /* -------------------------------------------------------------------------- */
+Hal::BadgeDisplayInfo Hal::getBadgeCurrentInfo()
+{
+    BadgeDisplayInfo info;
+    auto user_slots = get_available_user_slots();
+    size_t total_count = user_slots.size() + _builtin_badge_count;
+    info.totalCount = total_count;
+
+    if (s_current_carousel_idx >= total_count) {
+        s_current_carousel_idx = 0;
+    }
+    info.currentPos = s_current_carousel_idx;
+
+    if (s_current_carousel_idx < user_slots.size()) {
+        size_t slot = user_slots[s_current_carousel_idx];
+        std::string ext = read_slot_extension(slot);
+        info.isBuiltin = false;
+        info.userImagePath = std::string("A:") + slot_image_path(slot, ext);
+    } else {
+        info.isBuiltin = true;
+        info.builtinIndex = s_current_carousel_idx - user_slots.size();
+    }
+    return info;
+}
+
+Hal::BadgeDisplayInfo Hal::getBadgeNextInfo()
+{
+    auto user_slots = get_available_user_slots();
+    size_t total_count = user_slots.size() + _builtin_badge_count;
+    s_current_carousel_idx = (s_current_carousel_idx + 1) % total_count;
+    return getBadgeCurrentInfo();
+}
+
+Hal::BadgeDisplayInfo Hal::getBadgePreviousInfo()
+{
+    auto user_slots = get_available_user_slots();
+    size_t total_count = user_slots.size() + _builtin_badge_count;
+    s_current_carousel_idx = (s_current_carousel_idx + total_count - 1) % total_count;
+    return getBadgeCurrentInfo();
+}
+
 bool Hal::loadBadgeImage(lv_obj_t* image)
 {
     if (image == nullptr) {
@@ -566,9 +463,8 @@ bool Hal::loadBadgeImage(lv_obj_t* image)
         }
     }
 
-    // No user uploaded images yet: display gorgeous Built-in Badge 0
     s_current_carousel_idx = 0;
-    load_builtin_badge(image, 0);
+    lv_image_set_src(image, &icon_xiaozhi);
     return true;
 }
 
@@ -584,8 +480,7 @@ bool Hal::loadNextBadgeImage(lv_obj_t* image)
     if (s_current_carousel_idx < user_slots.size()) {
         return load_badge_slot(image, user_slots[s_current_carousel_idx]);
     } else {
-        size_t builtin_idx = s_current_carousel_idx - user_slots.size();
-        load_builtin_badge(image, builtin_idx);
+        lv_image_set_src(image, &icon_xiaozhi);
         return true;
     }
 }
@@ -602,8 +497,7 @@ bool Hal::loadPreviousBadgeImage(lv_obj_t* image)
     if (s_current_carousel_idx < user_slots.size()) {
         return load_badge_slot(image, user_slots[s_current_carousel_idx]);
     } else {
-        size_t builtin_idx = s_current_carousel_idx - user_slots.size();
-        load_builtin_badge(image, builtin_idx);
+        lv_image_set_src(image, &icon_xiaozhi);
         return true;
     }
 }

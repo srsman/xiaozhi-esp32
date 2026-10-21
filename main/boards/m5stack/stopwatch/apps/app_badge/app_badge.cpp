@@ -34,9 +34,13 @@ void AppBadge::onOpen()
 
     _badge_view = std::make_unique<view::BadgeView>();
     _badge_view->init(lv_screen_active());
-    if (_badge_view->imageObject() != nullptr) {
-        bool loaded = GetHAL().loadBadgeImage(_badge_view->imageObject());
-        _badge_view->setShowEditHint(!loaded);
+
+    // Show initial geek badge or user image
+    auto info = GetHAL().getBadgeCurrentInfo();
+    if (info.isBuiltin) {
+        _badge_view->showGeekBadge(info.builtinIndex, info.totalCount, info.currentPos);
+    } else {
+        _badge_view->showUserImage(info.userImagePath.c_str(), info.totalCount, info.currentPos);
     }
 }
 
@@ -54,34 +58,52 @@ void AppBadge::onRunning()
 
     LvglLockGuard lock;
 
-    if (_badge_view && _badge_view->imageObject() != nullptr) {
-        if (event == input::KeyEvent::GoPrevious) {
-            bool loaded = GetHAL().loadPreviousBadgeImage(_badge_view->imageObject());
-            _badge_view->setShowEditHint(!loaded);
-        } else if (event == input::KeyEvent::GoNext) {
-            bool loaded = GetHAL().loadNextBadgeImage(_badge_view->imageObject());
-            _badge_view->setShowEditHint(!loaded);
-        }
-    }
-
     if (_badge_view) {
         _badge_view->update();
-    }
 
-    if (_badge_view && _badge_view->consumeEditRequested()) {
-        mclog::info("start badge edit mode");
-        auto loading_page = std::make_unique<view::LoadingPage>(0x2B2B2B, 0xFFFFFF);
-        GetHAL().lvglUnlock();
-        GetHAL().startBadgeEditModeViaAp([&](std::string_view msg) {
-            LvglLockGuard lock;
-            loading_page->setMessage(msg);
-        });
-        GetHAL().lvglLock();
+        // Switch to next badge (via swipe left gesture, screen right tap, or physical key)
+        if (event == input::KeyEvent::GoNext || _badge_view->consumeNextRequested()) {
+            auto info = GetHAL().getBadgeNextInfo();
+            if (info.isBuiltin) {
+                _badge_view->showGeekBadge(info.builtinIndex, info.totalCount, info.currentPos);
+            } else {
+                _badge_view->showUserImage(info.userImagePath.c_str(), info.totalCount, info.currentPos);
+            }
+        }
+        // Switch to previous badge (via swipe right gesture, screen left tap, or physical key)
+        else if (event == input::KeyEvent::GoPrevious || _badge_view->consumePrevRequested()) {
+            auto info = GetHAL().getBadgePreviousInfo();
+            if (info.isBuiltin) {
+                _badge_view->showGeekBadge(info.builtinIndex, info.totalCount, info.currentPos);
+            } else {
+                _badge_view->showUserImage(info.userImagePath.c_str(), info.totalCount, info.currentPos);
+            }
+        }
 
-        // Reload image
-        if (_badge_view->imageObject() != nullptr) {
-            bool loaded = GetHAL().loadBadgeImage(_badge_view->imageObject());
-            _badge_view->setShowEditHint(!loaded);
+        // Long pressed -> Edit requested
+        if (_badge_view->consumeEditRequested()) {
+            mclog::info("start badge edit mode");
+            auto loading_page = std::make_unique<view::LoadingPage>(0x151B22, 0xFFFFFF);
+            loading_page->setMessage("Starting WiFi AP...\nPlease wait a moment");
+
+            GetHAL().lvglUnlock();
+            vTaskDelay(pdMS_TO_TICKS(50));
+
+            GetHAL().startBadgeEditModeViaAp([&](std::string_view msg) {
+                LvglLockGuard lock;
+                loading_page->setMessage(msg);
+            });
+
+            GetHAL().lvglLock();
+            loading_page.reset();
+
+            // Refresh current badge image after exiting AP mode
+            auto info = GetHAL().getBadgeCurrentInfo();
+            if (info.isBuiltin) {
+                _badge_view->showGeekBadge(info.builtinIndex, info.totalCount, info.currentPos);
+            } else {
+                _badge_view->showUserImage(info.userImagePath.c_str(), info.totalCount, info.currentPos);
+            }
         }
     }
 }

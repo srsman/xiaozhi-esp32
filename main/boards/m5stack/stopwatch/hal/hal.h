@@ -310,6 +310,16 @@ public:
     WifiStatus getWifiStatus();
 
     /* ---------------------------------- Badge --------------------------------- */
+    struct BadgeDisplayInfo {
+        bool isBuiltin = true;
+        size_t builtinIndex = 0;
+        std::string userImagePath;
+        size_t currentPos = 0;
+        size_t totalCount = 3;
+    };
+    BadgeDisplayInfo getBadgeCurrentInfo();
+    BadgeDisplayInfo getBadgeNextInfo();
+    BadgeDisplayInfo getBadgePreviousInfo();
     bool loadBadgeImage(lv_obj_t* image);
     bool loadNextBadgeImage(lv_obj_t* image);
     bool loadPreviousBadgeImage(lv_obj_t* image);

@@ -23,12 +23,12 @@ public:
         _panel->setRadius(0);
 
         _msg = std::make_unique<uitk::lvgl_cpp::Label>(_panel->get());
-        _msg->setTextFont(&lv_font_montserrat_24);
+        _msg->setTextFont(&lv_font_montserrat_20);
         _msg->setTextColor(lv_color_hex(textColor));
         _msg->setTextAlign(LV_TEXT_ALIGN_CENTER);
         _msg->align(LV_ALIGN_CENTER, 0, 0);
         _msg->setText("");
-        _msg->setWidth(320);
+        _msg->setWidth(380);
     }
 
     void setMessage(std::string_view msg)

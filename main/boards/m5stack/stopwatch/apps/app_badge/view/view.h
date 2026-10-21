@@ -38,20 +38,47 @@ public:
     void setShowEditHint(bool show);
     void update();
     bool consumeEditRequested();
+    bool consumeNextRequested();
+    bool consumePrevRequested();
+
     lv_obj_t* imageObject() const
     {
         return _image ? _image->get() : nullptr;
     }
 
+    void showGeekBadge(size_t index, size_t totalCount, size_t currentPos);
+    void showUserImage(const char* lvgl_path, size_t totalCount, size_t currentPos);
+
 private:
     void showEditDialog();
-    static void handleBadgeLongPressed(lv_event_t* e);
+    static void handleBadgeEvent(lv_event_t* e);
+    void updatePageDots(size_t currentPos, size_t totalCount);
 
     std::unique_ptr<uitk::lvgl_cpp::Container> _panel;
     std::unique_ptr<uitk::lvgl_cpp::Image> _image;
     std::unique_ptr<uitk::lvgl_cpp::Label> _edit_hint_label;
+
+    // Geek Badge Native UI
+    std::unique_ptr<uitk::lvgl_cpp::Container> _geek_card;
+    std::unique_ptr<uitk::lvgl_cpp::Label> _geek_chip_tag;
+    std::unique_ptr<uitk::lvgl_cpp::Label> _geek_title;
+    std::unique_ptr<uitk::lvgl_cpp::Image> _geek_icon;
+    std::unique_ptr<uitk::lvgl_cpp::Label> _geek_status;
+    std::unique_ptr<uitk::lvgl_cpp::Label> _geek_footer;
+
+    // Navigation indicators
+    std::unique_ptr<uitk::lvgl_cpp::Label> _left_arrow;
+    std::unique_ptr<uitk::lvgl_cpp::Label> _right_arrow;
+    std::unique_ptr<uitk::lvgl_cpp::Container> _dots_container;
+    std::vector<std::unique_ptr<uitk::lvgl_cpp::Container>> _dots;
+
     std::unique_ptr<EditBadgeDialog> _edit_dialog;
     bool _edit_requested = false;
+    bool _next_requested = false;
+    bool _prev_requested = false;
+
+    lv_point_t _press_point = {0, 0};
+    bool _is_pressing = false;
 };
 
 }  // namespace view
