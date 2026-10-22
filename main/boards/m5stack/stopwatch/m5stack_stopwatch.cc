@@ -13,6 +13,8 @@
 #include "watch_apps.h"
 #include "rx8130.h"
 #include <esp_log.h>
+#include <esp_wifi.h>
+#include <esp_event.h>
 #include <driver/i2c_master.h>
 #include <driver/spi_master.h>
 #include <wifi_manager.h>
@@ -864,6 +866,24 @@ public:
         InitializeButtons();
         InitializeImu();
         InitializeScreenshotTask();
+
+        // Register global WiFi event listener to cap RF TX power and enable Modem-Sleep,
+        // preventing battery brownout resets on ESP32-S3 (M5Stack StopWatch small battery).
+        esp_event_handler_instance_register(
+            WIFI_EVENT,
+            ESP_EVENT_ANY_ID,
+            [](void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data) {
+                if (event_id == WIFI_EVENT_STA_START || event_id == WIFI_EVENT_AP_START) {
+                    esp_wifi_set_max_tx_power(54); // Cap max TX power to 13.5dBm (~220mA vs ~500mA default)
+                    ESP_LOGI("M5StackStopwatch", "WiFi RF started: limited max TX power to 13.5dBm (54) for battery protection");
+                } else if (event_id == WIFI_EVENT_STA_CONNECTED) {
+                    esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
+                    ESP_LOGI("M5StackStopwatch", "WiFi connected: enabled Modem-Sleep power saving");
+                }
+            },
+            nullptr,
+            nullptr
+        );
 
         static M5StackStopwatchBoard* s_self = this;
         s_self = this;

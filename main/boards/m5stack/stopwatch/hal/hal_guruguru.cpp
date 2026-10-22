@@ -170,6 +170,7 @@ public:
         esp_wifi_set_mode(WIFI_MODE_AP);
         esp_wifi_set_config(WIFI_IF_AP, &wifi_cfg);
         esp_wifi_start();
+        esp_wifi_set_max_tx_power(52); // ~13 dBm to eliminate battery voltage drop during AP mode
 
         _dns_server = std::make_unique<DnsServer>();
         _dns_server->Start(ip_info.gw);

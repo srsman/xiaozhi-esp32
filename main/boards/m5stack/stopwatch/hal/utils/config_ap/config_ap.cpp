@@ -248,6 +248,7 @@ private:
             log("Failed to start Wi-Fi AP");
             return false;
         }
+        esp_wifi_set_max_tx_power(52); // ~13 dBm to eliminate battery voltage drop during AP mode
 
         return true;
     }
