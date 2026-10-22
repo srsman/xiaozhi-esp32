@@ -267,7 +267,10 @@ elseif(CONFIG_BOARD_TYPE_M5STACK_STOPWATCH)
     )
     list(APPEND MAIN_PRIV_REQUIRES_EXTRA esp_http_server wear_levelling fatfs)
     add_compile_definitions(FMT_HEADER_ONLY=1)
-    set(STOPWATCH_EMBED_TXTFILES "boards/m5stack/stopwatch/hal/utils/config_ap/assets/badge_config_ap.html")
+    set(STOPWATCH_EMBED_TXTFILES
+        "boards/m5stack/stopwatch/hal/utils/config_ap/assets/badge_config_ap.html"
+        "boards/m5stack/stopwatch/hal/utils/config_ap/assets/guruguru_config_ap.html"
+    )
 elseif(CONFIG_BOARD_TYPE_M5STACK_CORE_P4)
     set(BOARD_DIR "m5stack/corep4")
     set(BUILTIN_TEXT_FONT font_noto_sans_basic_30_4)

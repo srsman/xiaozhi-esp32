@@ -328,6 +328,13 @@ public:
     void startBadgeEditModeViaAp(std::function<void(std::string_view)> onLog);
     void requestBadgeEditExit();
 
+    /* ------------------------------- Guruguru --------------------------------- */
+    bool hasGuruguruCustomAvatar();
+    bool getGuruguruSlicePath(int dir, bool closed, std::string& path);
+    void startGuruguruUploadModeViaAp(std::function<void(std::string_view)> onLog);
+    void requestGuruguruUploadExit();
+    void clearGuruguruCustomAvatar();
+
     /* ---------------------------------- Guide --------------------------------- */
     bool shouldShowGuide();
 

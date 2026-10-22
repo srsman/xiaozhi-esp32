@@ -121,18 +121,24 @@ void GuruguruView::init(lv_obj_t* parent)
     _panel->setBgOpa(LV_OPA_COVER);
     _panel->removeFlag(LV_OBJ_FLAG_SCROLLABLE);
 
-    // Event callbacks
+    // Event callbacks (Touch interaction for avatar eye tracking)
     _panel->addEventCb(handleViewEvent, LV_EVENT_PRESSED, this);
     _panel->addEventCb(handleViewEvent, LV_EVENT_PRESSING, this);
     _panel->addEventCb(handleViewEvent, LV_EVENT_RELEASED, this);
-    _panel->addEventCb(handleViewEvent, LV_EVENT_LONG_PRESSED, this);
 
-    // 2. Top Title Badge
+    // 2. Top Title Badge (Clicking title opens Upload/Setup dialog)
     _title_badge = std::make_unique<Label>(_panel->get());
     _title_badge->setText("GURUGURU AVATAR");
     _title_badge->setTextFont(&MontserratSemiBold26);
     _title_badge->setTextColor(lv_color_hex(0xFF69B4));
     _title_badge->align(LV_ALIGN_TOP_MID, 0, 28);
+    _title_badge->addFlag(LV_OBJ_FLAG_CLICKABLE);
+    _title_badge->addEventCb([](lv_event_t* e) {
+        auto* self = static_cast<GuruguruView*>(lv_event_get_user_data(e));
+        if (self) {
+            self->showUploadDialog();
+        }
+    }, LV_EVENT_CLICKED, this);
 
     // 3. Avatar Card Base (Circular Glow Box)
     _avatar_card = std::make_unique<Container>(_panel->get());
@@ -255,6 +261,22 @@ void GuruguruView::init(lv_obj_t* parent)
     _mouth->setTextColor(lv_color_hex(0x4A2E35));
     _mouth->align(LV_ALIGN_CENTER, 0, 36);
 
+    // Custom 9-Slice Avatar Image Widget (1:1 Guruguru hardware mode)
+    _custom_avatar_img = std::make_unique<Image>(_avatar_card->get());
+    _custom_avatar_img->align(LV_ALIGN_CENTER, 0, 0);
+    _custom_avatar_img->removeFlag(LV_OBJ_FLAG_SCROLLABLE);
+
+    _has_custom_avatar = GetHAL().hasGuruguruCustomAvatar();
+    if (_has_custom_avatar) {
+        _head->setHidden(true);
+        _ear_left->setHidden(true);
+        _ear_right->setHidden(true);
+        _custom_avatar_img->setHidden(false);
+        updateCustomSlice(false);
+    } else {
+        _custom_avatar_img->setHidden(true);
+    }
+
     // 9. Direction Indicator Badge
     _dir_badge = std::make_unique<Label>(_panel->get());
     _dir_badge->setText("DIR: 4 [ FRONT ]");
@@ -264,7 +286,7 @@ void GuruguruView::init(lv_obj_t* parent)
 
     // 10. Hint Label
     _hint_label = std::make_unique<Label>(_panel->get());
-    _hint_label->setText("Touch to track | Hold to upload | IMU: ON");
+    _hint_label->setText("Touch face to track | Tap title for Upload");
     _hint_label->setTextFont(&lv_font_montserrat_14);
     _hint_label->setTextColor(lv_color_hex(0x77778A));
     _hint_label->align(LV_ALIGN_BOTTOM_MID, 0, -20);
@@ -314,6 +336,19 @@ void GuruguruView::calculateDirection(int touchX, int touchY)
     }
 }
 
+void GuruguruView::updateCustomSlice(bool closed)
+{
+    if (!_has_custom_avatar || !_custom_avatar_img) return;
+
+    std::string slice_path;
+    if (GetHAL().getGuruguruSlicePath(_current_dir, closed, slice_path)) {
+        if (slice_path != _current_slice_path) {
+            _current_slice_path = slice_path;
+            _custom_avatar_img->setSrc(_current_slice_path.c_str());
+        }
+    }
+}
+
 void GuruguruView::onTouch(int x, int y, bool isPressed)
 {
     _is_touching = isPressed;
@@ -327,8 +362,12 @@ void GuruguruView::onTouch(int x, int y, bool isPressed)
         _pupil_offset_y = 0;
     }
 
-    if (_pupil_left)  _pupil_left->align(LV_ALIGN_CENTER, _pupil_offset_x, _pupil_offset_y);
-    if (_pupil_right) _pupil_right->align(LV_ALIGN_CENTER, _pupil_offset_x, _pupil_offset_y);
+    if (_has_custom_avatar) {
+        updateCustomSlice(_is_blinking);
+    } else {
+        if (_pupil_left)  _pupil_left->align(LV_ALIGN_CENTER, _pupil_offset_x, _pupil_offset_y);
+        if (_pupil_right) _pupil_right->align(LV_ALIGN_CENTER, _pupil_offset_x, _pupil_offset_y);
+    }
 
     if (_dir_badge) {
         char buf[64];
@@ -358,8 +397,12 @@ void GuruguruView::updateImuTilt(float ax, float ay)
         _pupil_offset_y = 0;
     }
 
-    if (_pupil_left)  _pupil_left->align(LV_ALIGN_CENTER, _pupil_offset_x, _pupil_offset_y);
-    if (_pupil_right) _pupil_right->align(LV_ALIGN_CENTER, _pupil_offset_x, _pupil_offset_y);
+    if (_has_custom_avatar) {
+        updateCustomSlice(_is_blinking);
+    } else {
+        if (_pupil_left)  _pupil_left->align(LV_ALIGN_CENTER, _pupil_offset_x, _pupil_offset_y);
+        if (_pupil_right) _pupil_right->align(LV_ALIGN_CENTER, _pupil_offset_x, _pupil_offset_y);
+    }
 
     if (_dir_badge) {
         char buf[64];
@@ -372,8 +415,8 @@ void GuruguruView::toggleImuMode()
 {
     _imu_mode_enabled = !_imu_mode_enabled;
     if (_hint_label) {
-        _hint_label->setText(_imu_mode_enabled ? "Touch to track | Hold to upload | IMU: ON"
-                                              : "Touch to track | Hold to upload | IMU: OFF");
+        _hint_label->setText(_imu_mode_enabled ? "Touch face to track | Tap title for Upload"
+                                              : "Touch face to track | IMU: OFF");
     }
     GetHAL().vibrate(40);
 }
@@ -387,22 +430,30 @@ void GuruguruView::updateBlink()
             _last_blink_time = now;
             _next_blink_interval = 2600 + (std::rand() % 2400);
 
-            // Morph eye socket into closed smiling slit
-            if (_eye_left)  _eye_left->setHeight(8);
-            if (_eye_right) _eye_right->setHeight(8);
-            if (_pupil_left)  _pupil_left->setHidden(true);
-            if (_pupil_right) _pupil_right->setHidden(true);
+            if (_has_custom_avatar) {
+                updateCustomSlice(true);
+            } else {
+                // Morph eye socket into closed smiling slit
+                if (_eye_left)  _eye_left->setHeight(8);
+                if (_eye_right) _eye_right->setHeight(8);
+                if (_pupil_left)  _pupil_left->setHidden(true);
+                if (_pupil_right) _pupil_right->setHidden(true);
+            }
         }
     } else {
         if (now - _last_blink_time > 150) {
             _is_blinking = false;
             _last_blink_time = now;
 
-            // Restore full open eyes
-            if (_eye_left)  _eye_left->setHeight(64);
-            if (_eye_right) _eye_right->setHeight(64);
-            if (_pupil_left)  _pupil_left->setHidden(false);
-            if (_pupil_right) _pupil_right->setHidden(false);
+            if (_has_custom_avatar) {
+                updateCustomSlice(false);
+            } else {
+                // Restore full open eyes
+                if (_eye_left)  _eye_left->setHeight(64);
+                if (_eye_right) _eye_right->setHeight(64);
+                if (_pupil_left)  _pupil_left->setHidden(false);
+                if (_pupil_right) _pupil_right->setHidden(false);
+            }
         }
     }
 }
@@ -447,11 +498,6 @@ void GuruguruView::handleViewEvent(lv_event_t* e)
     if (self->_upload_dialog != nullptr) return;
 
     lv_event_code_t code = lv_event_get_code(e);
-
-    if (code == LV_EVENT_LONG_PRESSED) {
-        self->showUploadDialog();
-        return;
-    }
 
     if (code == LV_EVENT_PRESSED || code == LV_EVENT_PRESSING) {
         lv_indev_t* indev = lv_indev_active();

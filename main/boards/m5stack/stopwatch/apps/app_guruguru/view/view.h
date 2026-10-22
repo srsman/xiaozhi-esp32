@@ -91,6 +91,12 @@ private:
     std::unique_ptr<GuruguruUploadDialog> _upload_dialog;
     bool _upload_requested = false;
 
+    // Custom 9-slice image avatar (1:1 Guruguru hardware mode)
+    std::unique_ptr<uitk::lvgl_cpp::Image> _custom_avatar_img;
+    bool _has_custom_avatar = false;
+    std::string _current_slice_path;
+    void updateCustomSlice(bool closed = false);
+
     // State
     int _current_dir = 4; // 4 = Front
     int _pupil_offset_x = 0;
