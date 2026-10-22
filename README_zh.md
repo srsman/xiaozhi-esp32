@@ -1,169 +1,133 @@
-# An MCP-based Chatbot
+# M5Stack StopWatch (小智 AI 智能秒表手表) & MCP 语音终端
 
 （中文 | [English](README.md) | [日本語](README_ja.md)）
 
-## 介绍
+本项目是专为 **M5Stack StopWatch (圆形触摸屏智能秒表/智能手表)** 深度打造的小智 AI 智能固件。在完整保留小智 AI 实时语音大模型对话交互（离线低功耗唤醒、Muse 动态数字人表情头像、实时全双工语音、MCP 多端控制）的基础上，100% 融合了 M5Stack 官方全套应用生态与 466×466 圆形 AMOLED 屏原生高颜值交互。
 
-👉 [人类：给 AI 装摄像头 vs AI：当场发现主人三天没洗头【bilibili】](https://www.bilibili.com/video/BV1bpjgzKEhd/)
+---
 
-👉 [手工打造你的 AI 女友，新手入门教程【bilibili】](https://www.bilibili.com/video/BV1XnmFYLEJN/)
+## 🌟 M5Stack StopWatch 全功能矩阵
 
-小智 AI 聊天机器人作为一个语音交互入口，利用 Qwen / DeepSeek 等大模型的 AI 能力，通过 MCP 协议实现多端控制。
+### 1. 深度融合的 10 大原生应用
+- **小智 AI 语音助手 (XiaoZhi AI)**：
+  - 支持离线低功耗语音唤醒（“你好小智”），声纹识别鉴定说话人身份；
+  - 动态 Muse 数字人表情头像，呈现丰富情绪状态（聆听、思考、说话等）；
+  - 全双工低延迟实时大模型对话与流式 TTS 语音播报；
+  - 集成设备端 MCP 协议，支持音量调节、亮度调节与硬件交互控制。
+- **个性化智能胸牌 (Badge)**：
+  - **3 款内置极客卡片**：小智 AI 赛博工牌、星际领航员通行证、数字矩阵极客徽章 3 套精美预置矢量主题；
+  - **全屏多维触控手势**：支持全屏向左 / 向右滑动切换（Swipe Left / Right）、屏幕左右边缘轻触切屏、底部动态小圆点指示当前卡片索引；
+  - **手机免 App 无线传图**：长按屏幕触发确认对话框，点击“Edit”一键开启专属低功耗 Wi-Fi AP 热点；手机连接热点后打开浏览器 (`http://192.168.4.1`)，即可多槽位上传、裁剪缩放预览、激活与删除照片；
+  - **原生硬件 JPEG 解码与防黑屏容灾**：采用 ESP32-S3 硬件加速与 PSRAM 高速解码，即便图片异常也自动平滑降级至内置极客胸牌，保证绝不黑屏；
+  - **优雅平滑退出**：点击手机端网页“Done”或按下手表实体侧键即可秒级干净退出热点，并自动将轮播定位至最新激活的照片槽位，后台无缝恢复小智网络。
+- **表盘生态 (Watch Face)**：
+  - 内置经典指针（极速平滑走针）、极客数字（高对比度赛博风）、极简现代等多种表盘风格；
+  - 接入 RX8130 独立高精度 RTC 实时硬件时钟，支持断电走时与开机自动网络校时。
+- **专业秒表 (Stopwatch)**：
+  - 官方级毫秒精度计时内核，支持多段圈数计次（Lap Time）与统计分析。
+- **定时闹钟 (Alarm Clock)**：
+  - 支持多时间段设定、周期循环响铃与内置扁平马达触觉震动提醒。
+- **趣味幸运转盘 (Lucky Wheel)**：
+  - 支持全屏物理惯性滑动旋转与随机结果判定。
+- **动态音频频谱 (Audio FFT)**：
+  - 硬件 ES8311 音频 Codec 实时采样，高帧率动态跳动柱状频谱可视化。
+- **水平仪 (IMU)**：
+  - 基于板载 BMI270 六轴运动传感器，提供高灵敏度电子水平仪与倾角动态读数。
+- **重力流体小球 (FluidBox)**：
+  - 真实物理碰撞与重力感应，倾斜手表即可观察微观粒子碰撞动态。
+- **系统设置 (Settings)**：
+  - 支持 AMOLED 屏幕无极亮度调节、扬声器音量控制、Wi-Fi 状态查询与系统固件信息。
+- **3D 秒表圆球物理抽屉 (App Launcher)**：
+  - 采用独创的 3D 仿真实体秒表物理滚轮圆球设计，菜单文字标签与球体精确动态对齐，滑动流畅无遮挡。
 
-<img src="docs/mcp-based-graph.jpg" alt="通过MCP控制万物" width="320">
+---
 
-## 近期更新
+## 🛠️ 硬件技术规格
 
-- 新增支持 **[M5Stack StopWatch](main/boards/m5stack/stopwatch/README.md) (圆形触摸屏智能秒表手表)**：深度融合小智 AI 语音体系与官方 10 款原生应用生态（经典/极客表盘、专业秒表、闹钟、音乐频谱、重力小球、水平仪、系统设置、3D 仿真实体秒表圆球物理抽屉）；创新实现胸牌手机无线 AP 传图（支持多槽位上传预览裁剪）、原生硬件 JPEG 解码与防黑屏容灾机制。
-- MQTT 和 BluFi 加密已迁移到 PSA Crypto，同时完成了 IDF 6 组件拆分及第三方依赖兼容处理。
-- 加固了音频流水线并发、MQTT/UDP 数据包校验和发布矩阵选择逻辑。
-- 使用 ESP-SR 2.4.7 时，ESP32-P4 Rev1 和 Rev3 均支持 IDF 6。
+| 项目 | 规格参数 | 说明 |
+| :--- | :--- | :--- |
+| **主控芯片** | ESP32-S3 (Xtensa 双核 240MHz) | 支持硬件矢量指令集加速 |
+| **存储配置** | 16MiB Flash + 8MiB Octal PSRAM | 高速八线内存，提供充沛的图像解码与音频缓冲 |
+| **显示屏幕** | 1.75 英寸 AMOLED 圆形触摸屏 | 分辨率 466 × 466, QSPI 接口, CO5300 驱动控制器 |
+| **触控芯片** | CST820B 高灵敏度电容触摸屏 | I2C 接口 @ 0x15, 支持滑动、长按、多点手势 |
+| **音频编解码** | ES8311 高保真低功耗 Audio Codec | I2S 双工传输，外接高性能硬件功放 |
+| **电源与电池** | M5PM1 智能电源管理单元 | I2C @ 0x6E，支持库仑计电量百分比、充电监测 |
+| **IO 扩展芯片** | M5IOE1 IO 扩展器 | I2C @ 0x4F，统一管理屏幕供电、复位、震动马达等外设 |
+| **传感器与RTC** | BMI270 (六轴 IMU) + RX8130 (独立 RTC) | 支持重力感应、姿态计算与硬件时钟走时 |
+| **触觉反馈** | 内置微型线性扁平震动马达 | 支持触控震动反馈与闹钟事件振动 |
 
-### 已实现功能
+---
 
-- 支持 Wi-Fi、有线以太网、USB RNDIS，以及 ML307/EC801E 或 NT26 Cat.1 4G 网络；部分硬件支持 Wi-Fi 与 4G 切换
-- 基于 [ESP-SR](https://github.com/espressif/esp-sr) 的离线语音唤醒，支持自定义唤醒词
-- 支持两种通信传输方式：[WebSocket](docs/websocket_zh.md) 和 [MQTT + UDP](docs/mqtt-udp_zh.md)
-- 采用 Opus 音频流，既支持传统的流式 ASR + LLM + TTS 方案，也支持 Realtime 端到端语音模型；具备 AEC 的硬件可实现实时全双工交互
-- 声纹识别，识别当前说话人的身份 [3D Speaker](https://github.com/modelscope/3D-Speaker)
-- OLED / LCD 显示屏，支持表情和丰富的情绪呈现；部分硬件支持摄像头视觉输入
-- 电量显示与电源管理
-- 提供 38 种界面语言；语音提示优先使用本地化资源，缺失时自动回退到英文
-- 支持 ESP32、ESP32-C3、ESP32-C5、ESP32-C6、ESP32-S3、ESP32-P4 芯片平台
-- 支持热点和 BluFi 两种 Wi-Fi 配网方式
-- 通过设备端 MCP 实现设备控制（音量、灯光、电机、GPIO 等）
-- 通过云端 MCP 扩展大模型能力（智能家居控制、PC桌面操作、知识搜索、邮件收发等）
-- 自定义唤醒词、字体、表情与聊天背景，支持网页端在线修改 ([自定义Assets生成器](https://github.com/78/xiaozhi-assets-generator))
+## 🗂️ 16MB Flash 分区架构设计
 
-## 硬件
+采用专用的优化存储架构 `partitions/v2/16m_stopwatch.csv`：
 
-### 面包板手工制作实践
+| 分区标识 | 偏移地址 | 容量大小 | 核心用途说明 |
+| :--- | :--- | :--- | :--- |
+| `nvs` | 0x9000 | 16 KB | Wi-Fi 凭证、系统配网与用户设置存储 |
+| `otadata` | 0xd000 | 8 KB | OTA 无缝双备份升级状态标识 |
+| `ota_0` | 0x20000 | **5.125 MB** | 主运行固件（包含小智 AI 全套核心 + 10 款原生应用） |
+| `ota_1` | 0x540000 | **5.125 MB** | 完整对等的 OTA 备用升级固件分区 |
+| `storage` | 0xa60000 | **1.625 MB** | FATFS 文件系统（专门持久化存储用户上传的胸牌图片） |
+| `assets` | 0xc00000 | **4.000 MB** | 包含 Muse 表情图集、UI 矢量图标、字体资产与系统音效 |
 
-详见飞书文档教程：
+---
 
-👉 [《小智 AI 聊天机器人百科全书》](https://ccnphfhqs21z.feishu.cn/wiki/F5krwD16viZoF0kKkvDcrZNYnhb?from=from_copylink)
+## ⚡ 固件快速下载与烧录
 
-面包板效果图如下：
+### 1. 固件下载
+- **编译发布包 (ZIP)**：可直接在仓库 `releases/` 目录或 GitHub Actions 构建产物中获取最新的 `v2.5.3_m5stack-stopwatch.zip`。
+- **合并固件 (BIN)**：解压后即可获得包含全量数据的 `merged-binary.bin`。
 
-![面包板效果图](docs/v1/wiring2.jpg)
+### 2. 极速一键烧录
+将 M5Stack StopWatch 通过 Type-C 数据线连接至电脑（假设端口为 `COM8`）：
 
-### 支持 138 个板卡目录、171 个固件发布变体（仅展示部分）
+```bash
+# 使用 esptool 从 0x0 极速一键烧录完整固件
+python -m esptool --chip esp32s3 -p COM8 -b 921600 write_flash 0x0 merged-binary.bin
+```
 
-- <a href="https://oshwhub.com/li-chuang-kai-fa-ban/li-chuang-shi-zhan-pai-esp32-s3-kai-fa-ban" target="_blank" title="立创·实战派 ESP32-S3 开发板">立创·实战派 ESP32-S3 开发板</a>
-- <a href="https://github.com/espressif/esp-box" target="_blank" title="乐鑫 ESP32-S3-BOX-3">乐鑫 ESP32-S3-BOX-3</a>
-- <a href="https://docs.m5stack.com/zh_CN/core/CoreS3" target="_blank" title="M5Stack CoreS3">M5Stack CoreS3</a>
-- <a href="https://docs.m5stack.com/en/atom/Atomic%20Echo%20Base" target="_blank" title="AtomS3R + Echo Base">M5Stack AtomS3R + Echo Base</a>
-- <a href="main/boards/m5stack/stopwatch/README.md" title="M5Stack StopWatch">M5Stack StopWatch (小智 AI 秒表手表)</a>
-- <a href="https://gf.bilibili.com/item/detail/1108782064" target="_blank" title="神奇按钮 2.4">神奇按钮 2.4</a>
-- <a href="https://www.waveshare.net/shop/ESP32-S3-Touch-AMOLED-1.8.htm" target="_blank" title="微雪电子 ESP32-S3-Touch-AMOLED-1.8">微雪电子 ESP32-S3-Touch-AMOLED-1.8</a>
-- <a href="https://github.com/Xinyuan-LilyGO/T-Circle-S3" target="_blank" title="LILYGO T-Circle-S3">LILYGO T-Circle-S3</a>
-- <a href="https://oshwhub.com/tenclass01/xmini_c3" target="_blank" title="虾哥 Mini C3">虾哥 Mini C3</a>
-- <a href="https://oshwhub.com/movecall/cuican-ai-pendant-lights-up-y" target="_blank" title="Movecall CuiCan ESP32S3">璀璨·AI 吊坠</a>
-- <a href="https://github.com/WMnologo/xingzhi-ai" target="_blank" title="无名科技Nologo-星智-1.54">无名科技 Nologo-星智-1.54TFT</a>
-- <a href="https://www.seeedstudio.com/SenseCAP-Watcher-W1-A-p-5979.html" target="_blank" title="SenseCAP Watcher">SenseCAP Watcher</a>
-- <a href="https://www.bilibili.com/video/BV1BHJtz6E2S/" target="_blank" title="ESP-HI 超低成本机器狗">ESP-HI 超低成本机器狗</a>
+或在源码目录下使用 idf 命令行烧录：
+```bash
+idf.py -p COM8 flash monitor
+```
 
-<div style="display: flex; justify-content: space-between;">
-  <a href="docs/v1/lichuang-s3.jpg" target="_blank" title="立创·实战派 ESP32-S3 开发板">
-    <img src="docs/v1/lichuang-s3.jpg" width="240" />
-  </a>
-  <a href="docs/v1/espbox3.jpg" target="_blank" title="乐鑫 ESP32-S3-BOX3">
-    <img src="docs/v1/espbox3.jpg" width="240" />
-  </a>
-  <a href="docs/v1/m5cores3.jpg" target="_blank" title="M5Stack CoreS3">
-    <img src="docs/v1/m5cores3.jpg" width="240" />
-  </a>
-  <a href="docs/v1/atoms3r.jpg" target="_blank" title="AtomS3R + Echo Base">
-    <img src="docs/v1/atoms3r.jpg" width="240" />
-  </a>
-  <a href="docs/v1/magiclick.jpg" target="_blank" title="神奇按钮 2.4">
-    <img src="docs/v1/magiclick.jpg" width="240" />
-  </a>
-  <a href="docs/v1/waveshare.jpg" target="_blank" title="微雪电子 ESP32-S3-Touch-AMOLED-1.8">
-    <img src="docs/v1/waveshare.jpg" width="240" />
-  </a>
-  <a href="docs/v1/lilygo-t-circle-s3.jpg" target="_blank" title="LILYGO T-Circle-S3">
-    <img src="docs/v1/lilygo-t-circle-s3.jpg" width="240" />
-  </a>
-  <a href="docs/v1/xmini-c3.jpg" target="_blank" title="虾哥 Mini C3">
-    <img src="docs/v1/xmini-c3.jpg" width="240" />
-  </a>
-  <a href="docs/v1/movecall-cuican-esp32s3.jpg" target="_blank" title="CuiCan">
-    <img src="docs/v1/movecall-cuican-esp32s3.jpg" width="240" />
-  </a>
-  <a href="docs/v1/wmnologo_xingzhi_1.54.jpg" target="_blank" title="无名科技Nologo-星智-1.54">
-    <img src="docs/v1/wmnologo_xingzhi_1.54.jpg" width="240" />
-  </a>
-  <a href="docs/v1/sensecap_watcher.jpg" target="_blank" title="SenseCAP Watcher">
-    <img src="docs/v1/sensecap_watcher.jpg" width="240" />
-  </a>
-  <a href="docs/v1/esp-hi.jpg" target="_blank" title="ESP-HI 超低成本机器狗">
-    <img src="docs/v1/esp-hi.jpg" width="240" />
-  </a>
-</div>
+---
 
-## 软件
+## 📖 胸牌无线传图 (Badge) 交互全流程
 
-### 固件烧录
+1. **进入应用**：在应用抽屉中点击“胸牌 (Badge)”图标进入；
+2. **手势切换**：在屏幕上**向左或向右滑动**，或**轻触屏幕左右两侧边缘**，即可在内置赛博极客卡片与已上传的照片间流畅轮播，底部圆点指示当前卡片索引；
+3. **唤起编辑**：在任意胸牌卡片上**长按屏幕**，屏幕弹出确认弹窗 `Enter badge edit?`；
+4. **启动热点**：点击绿色的 `[Edit]` 按钮，手表屏幕提示 `Starting WiFi AP...`，随后显示热点名称（如 `M5StopWatch-XXXX`）与访问地址 `http://192.168.4.1`；
+5. **手机传图**：
+   - 打开手机 Wi-Fi 列表，连接该热点（免密码）；
+   - 在手机浏览器中输入 `http://192.168.4.1` 打开胸牌管理器网页；
+   - 网页支持 6 个独立槽位管理：点击槽位上传 JPG/PNG 图像，支持手势拖动与平移缩放裁剪；
+   - 点击“Upload”上传图片，点击“Set Active”激活对应卡片；
+6. **优雅退出**：
+   - 上传或整理完毕后，直接点击网页底部的 **[Done]** 按钮，或按下手表侧边实体按钮；
+   - 手表屏幕短暂提示 `Exited edit mode` 后，将**全自动退出 AP 并切回胸牌浏览界面**，第一顺位显示最新激活的照片。
 
-新手第一次操作建议先不要搭建开发环境，直接使用免开发环境烧录的固件。
+---
 
-固件默认接入 [xiaozhi.me](https://xiaozhi.me) 官方服务器，个人用户注册账号可以免费使用 Qwen 实时模型。
+## 🌐 小智 AI 通用技术体系 (XiaoZhi Ecosystem)
 
-👉 [新手烧录固件教程](https://ccnphfhqs21z.feishu.cn/wiki/Zpz4wXBtdimBrLk25WdcXzxcnNS)
-
-### 开发环境
-
-- Cursor 或 VSCode
-- 安装 ESP-IDF 插件。最低要求为 [ESP-IDF v6.0.1](https://github.com/espressif/esp-idf/releases/tag/v6.0.1)，推荐 [ESP-IDF v6.1](https://github.com/espressif/esp-idf/releases/tag/v6.1)。不再支持 ESP-IDF 5.x
-- Linux 比 Windows 更好，编译速度快，也免去驱动问题的困扰
-- 本项目使用 Google C++ 代码风格，提交代码时请确保符合规范
+### 核心特性
+- **离线语音唤醒**：基于 [ESP-SR](https://github.com/espressif/esp-sr) 实现高准确率离线语音唤醒与自定义唤醒词；
+- **全双工实时交互**：采用 Opus 编码音频流，支持 WebSocket 与 MQTT+UDP 双通信协议，支持流式 ASR+LLM+TTS 及 Realtime 端到端模型；
+- **声纹识别**：支持说话人身份鉴定；
+- **MCP 协议驱动**：通过设备端 MCP 与云端 MCP 控制万物（家居、灯光、电脑桌面等）。
 
 ### 开发者文档
-
-- [自定义开发板指南](docs/custom-board_zh.md) - 学习如何为小智 AI 创建自定义开发板
-- [MCP 协议物联网控制用法说明](docs/mcp-usage_zh.md) - 了解如何通过 MCP 协议控制物联网设备
-- [MCP 协议交互流程](docs/mcp-protocol_zh.md) - 设备端 MCP 协议的实现方式
+- [M5Stack StopWatch 专属文档](main/boards/m5stack/stopwatch/README.md)
+- [自定义开发板指南](docs/custom-board_zh.md)
+- [MCP 协议物联网控制说明](docs/mcp-usage_zh.md)
 - [MQTT + UDP 混合通信协议文档](docs/mqtt-udp_zh.md)
-- [一份详细的 WebSocket 通信协议文档](docs/websocket_zh.md)
+- [WebSocket 通信协议文档](docs/websocket_zh.md)
 
-## 大模型配置
+---
 
-如果你已经拥有一个小智 AI 聊天机器人设备，并且已接入官方服务器，可以登录 [xiaozhi.me](https://xiaozhi.me) 控制台进行配置。
+## 📄 许可声明
 
-👉 [后台操作视频教程（旧版界面）](https://www.bilibili.com/video/BV1jUCUY2EKM/)
-
-## 相关开源项目
-
-在个人电脑上部署服务器，可以参考以下第三方开源的项目：
-
-- [xinnan-tech/xiaozhi-esp32-server](https://github.com/xinnan-tech/xiaozhi-esp32-server) Python 服务器
-- [joey-zhou/xiaozhi-esp32-server-java](https://github.com/joey-zhou/xiaozhi-esp32-server-java) Java 服务器
-- [AnimeAIChat/xiaozhi-server-go](https://github.com/AnimeAIChat/xiaozhi-server-go) Golang 服务器
-- [hackers365/xiaozhi-esp32-server-golang](https://github.com/hackers365/xiaozhi-esp32-server-golang) Golang 服务器
-
-使用小智通信协议的第三方客户端项目：
-
-- [huangjunsen0406/py-xiaozhi](https://github.com/huangjunsen0406/py-xiaozhi) Python 客户端
-- [TOM88812/xiaozhi-android-client](https://github.com/TOM88812/xiaozhi-android-client) Android 客户端
-- [100askTeam/xiaozhi-linux](http://github.com/100askTeam/xiaozhi-linux) 百问科技提供的 Linux 客户端
-- [78/xiaozhi-sf32](https://github.com/78/xiaozhi-sf32) 思澈科技的蓝牙芯片固件
-- [QuecPython/solution-xiaozhiAI](https://github.com/QuecPython/solution-xiaozhiAI) 移远提供的 QuecPython 固件
-
-## 关于项目
-
-这是一个由虾哥开源的 ESP32 项目，以 MIT 许可证发布，允许任何人免费使用，修改或用于商业用途。
-
-我们希望通过这个项目，能够帮助大家了解 AI 硬件开发，将当下飞速发展的大语言模型应用到实际的硬件设备中。
-
-如果你有任何想法或建议，请随时提出 Issues 或加入 [Discord](https://discord.gg/C759fGMBcZ) 或 QQ 群：1011329060
-
-## Star History
-
-<a href="https://star-history.com/#78/xiaozhi-esp32&Date">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=78/xiaozhi-esp32&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=78/xiaozhi-esp32&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=78/xiaozhi-esp32&type=Date" />
- </picture>
-</a>
+本项目以 MIT 许可证发布，允许任何人免费学习、修改或用于商业用途。
