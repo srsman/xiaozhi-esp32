@@ -47,7 +47,7 @@ public:
     }
 
     void showGeekBadge(size_t index, size_t totalCount, size_t currentPos);
-    void showUserImage(const char* lvgl_path, size_t totalCount, size_t currentPos);
+    void showUserImage(size_t slot, size_t totalCount, size_t currentPos);
 
 private:
     void showEditDialog();

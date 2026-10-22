@@ -108,13 +108,30 @@ std::string make_ap_ssid()
 
 class Session {
 public:
+    static Session* s_active_session;
+
     Session(const std::function<void(std::string_view)>& onLog, const Callbacks& callbacks)
         : _on_log(onLog), _callbacks(callbacks)
     {
     }
 
+    ~Session()
+    {
+        if (s_active_session == this) {
+            s_active_session = nullptr;
+        }
+    }
+
+    void trigger_exit()
+    {
+        if (_event_group != nullptr) {
+            xEventGroupSetBits(_event_group, _exit_requested_bit);
+        }
+    }
+
     bool run()
     {
+        s_active_session = this;
         log("Starting WiFi AP...\nPlease wait");
 
         if (!ensure_wifi_stack_ready()) {
@@ -157,6 +174,9 @@ public:
                 }
             }
         }
+
+        // Allow brief cooldown to let httpd finish sending response
+        vTaskDelay(pdMS_TO_TICKS(100));
 
         stop();
 
@@ -522,8 +542,10 @@ private:
     static esp_err_t handle_close(httpd_req_t* req)
     {
         auto* self = self_from_request(req);
-        xEventGroupSetBits(self->_event_group, _exit_requested_bit);
         httpd_resp_sendstr(req, "closing");
+        if (self != nullptr) {
+            self->trigger_exit();
+        }
         return ESP_OK;
     }
 
@@ -595,11 +617,20 @@ private:
     esp_netif_t* _ap_netif = nullptr;
 };
 
+Session* Session::s_active_session = nullptr;
+
 }  // namespace
 
 bool run(const std::function<void(std::string_view)>& onLog, const Callbacks& callbacks)
 {
     return Session(onLog, callbacks).run();
+}
+
+void request_exit()
+{
+    if (Session::s_active_session != nullptr) {
+        Session::s_active_session->trigger_exit();
+    }
 }
 
 }  // namespace badge::config_ap

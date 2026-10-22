@@ -14,8 +14,7 @@ As a voice interaction entry, the XiaoZhi AI chatbot leverages the AI capabiliti
 
 ## Recent Updates
 
-- The project now requires ESP-IDF v6.0.1 or later. [ESP-IDF v6.1](https://github.com/espressif/esp-idf/releases/tag/v6.1) is the recommended SDK. ESP-IDF 5.x is no longer supported. The current matrix contains 171 variants; ESP32-S31 builds require IDF 6.1 or later.
-- Added comprehensive support for **M5Stack StopWatch (AMOLED round touchscreen smart watch)**, seamlessly integrating XiaoZhi AI voice interaction with M5Stack's 10 native applications (Watch Face, Stopwatch, Alarm Clock, Audio FFT, FluidBox, IMU, multi-theme Geek Badges, and Wi-Fi AP wireless photo upload).
+- Added comprehensive support for **[M5Stack StopWatch](main/boards/m5stack/stopwatch/README.md) (AMOLED round touchscreen smart watch)**: seamlessly integrating XiaoZhi AI voice interaction with M5Stack's 10 native applications (Watch Face, Stopwatch, Alarm Clock, Audio FFT, FluidBox, IMU, Settings, 3D physical-wheel App Drawer); introduces wireless Wi-Fi AP photo upload for customizable badges with native hardware JPEG decoding and black-screen fallback.
 - MQTT and BluFi cryptographic code has migrated to PSA Crypto. IDF 6 component splits and third-party dependency compatibility have also been addressed.
 - Audio pipeline concurrency, MQTT/UDP packet validation, and release-matrix selection have been hardened.
 - ESP32-P4 Rev1 and Rev3 are both supported on IDF 6 with ESP-SR 2.4.7.

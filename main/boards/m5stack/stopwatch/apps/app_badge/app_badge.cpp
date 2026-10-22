@@ -8,8 +8,10 @@
 #include <mooncake.h>
 #include <mooncake_log.h>
 #include <assets/assets.h>
-#include <apps/common/loading_page/loading_page.h>
+#include <esp_log.h>
 #include <memory>
+
+static const char* TAG = "AppBadge";
 
 using namespace mooncake;
 
@@ -29,6 +31,9 @@ void AppBadge::onOpen()
     mclog::tagInfo(getAppInfo().name, "on open");
 
     _key_manager = std::make_unique<input::KeyManager>();
+    _is_ap_running = false;
+    _ap_finished = false;
+    _ap_task_handle = nullptr;
 
     LvglLockGuard lock;
 
@@ -40,7 +45,7 @@ void AppBadge::onOpen()
     if (info.isBuiltin) {
         _badge_view->showGeekBadge(info.builtinIndex, info.totalCount, info.currentPos);
     } else {
-        _badge_view->showUserImage(info.userImagePath.c_str(), info.totalCount, info.currentPos);
+        _badge_view->showUserImage(info.userSlot, info.totalCount, info.currentPos);
     }
 }
 
@@ -51,6 +56,37 @@ void AppBadge::onRunning()
         event = _key_manager->update();
     }
 
+    // 1. 如果当前处于 WiFi AP 配网图片编辑模式
+    if (_is_ap_running) {
+        // 用户按下实体按键退出 AP 模式
+        if (event == input::KeyEvent::GoHome) {
+            ESP_LOGI(TAG, "Home key pressed, requesting AP edit exit");
+            GetHAL().requestBadgeEditExit();
+        }
+
+        // 检查后台 AP 任务是否已退出
+        if (_ap_finished) {
+            ESP_LOGI(TAG, "AP edit mode finished, restoring badge view");
+            _is_ap_running = false;
+            _ap_finished = false;
+
+            LvglLockGuard lock;
+            _loading_page.reset();
+
+            // 恢复展示胸牌
+            if (_badge_view) {
+                auto info = GetHAL().getBadgeCurrentInfo();
+                if (info.isBuiltin) {
+                    _badge_view->showGeekBadge(info.builtinIndex, info.totalCount, info.currentPos);
+                } else {
+                    _badge_view->showUserImage(info.userSlot, info.totalCount, info.currentPos);
+                }
+            }
+        }
+        return;
+    }
+
+    // 2. 正常胸牌浏览模式
     if (event == input::KeyEvent::GoHome) {
         close();
         return;
@@ -67,7 +103,7 @@ void AppBadge::onRunning()
             if (info.isBuiltin) {
                 _badge_view->showGeekBadge(info.builtinIndex, info.totalCount, info.currentPos);
             } else {
-                _badge_view->showUserImage(info.userImagePath.c_str(), info.totalCount, info.currentPos);
+                _badge_view->showUserImage(info.userSlot, info.totalCount, info.currentPos);
             }
         }
         // Switch to previous badge (via swipe right gesture, screen left tap, or physical key)
@@ -76,34 +112,35 @@ void AppBadge::onRunning()
             if (info.isBuiltin) {
                 _badge_view->showGeekBadge(info.builtinIndex, info.totalCount, info.currentPos);
             } else {
-                _badge_view->showUserImage(info.userImagePath.c_str(), info.totalCount, info.currentPos);
+                _badge_view->showUserImage(info.userSlot, info.totalCount, info.currentPos);
             }
         }
 
-        // Long pressed -> Edit requested
+        // 长按触发编辑对话框确认 -> 异步启动 AP 模式
         if (_badge_view->consumeEditRequested()) {
-            mclog::info("start badge edit mode");
-            auto loading_page = std::make_unique<view::LoadingPage>(0x151B22, 0xFFFFFF);
-            loading_page->setMessage("Starting WiFi AP...\nPlease wait a moment");
+            ESP_LOGI(TAG, "consumeEditRequested triggered! Launching background AP task...");
+            _is_ap_running = true;
+            _ap_finished = false;
 
-            GetHAL().lvglUnlock();
-            GetHAL().delay(50);
+            _loading_page = std::make_unique<view::LoadingPage>(0x151B22, 0xFFFFFF);
+            _loading_page->setMessage("Starting WiFi AP...\nPlease wait a moment");
 
-            GetHAL().startBadgeEditModeViaAp([&](std::string_view msg) {
-                LvglLockGuard lock;
-                loading_page->setMessage(msg);
-            });
-
-            GetHAL().lvglLock();
-            loading_page.reset();
-
-            // Refresh current badge image after exiting AP mode
-            auto info = GetHAL().getBadgeCurrentInfo();
-            if (info.isBuiltin) {
-                _badge_view->showGeekBadge(info.builtinIndex, info.totalCount, info.currentPos);
-            } else {
-                _badge_view->showUserImage(info.userImagePath.c_str(), info.totalCount, info.currentPos);
-            }
+            xTaskCreate([](void* arg) {
+                auto* self = static_cast<AppBadge*>(arg);
+                GetHAL().startBadgeEditModeViaAp([self](std::string_view msg) {
+                    if (GetHAL().lvglLock()) {
+                        if (self->_loading_page) {
+                            self->_loading_page->setMessage(msg);
+                        }
+                        GetHAL().lvglUnlock();
+                    }
+                });
+                ESP_LOGI(TAG, "AP task returned from startBadgeEditModeViaAp");
+                vTaskDelay(pdMS_TO_TICKS(300));
+                self->_ap_finished = true;
+                self->_ap_task_handle = nullptr;
+                vTaskDelete(nullptr);
+            }, "badge_ap_task", 8192, this, 3, &_ap_task_handle);
         }
     }
 }
@@ -112,9 +149,18 @@ void AppBadge::onClose()
 {
     mclog::tagInfo(getAppInfo().name, "on close");
 
+    if (_is_ap_running) {
+        GetHAL().requestBadgeEditExit();
+        int wait_count = 0;
+        while (_ap_task_handle != nullptr && wait_count++ < 20) {
+            GetHAL().delay(50);
+        }
+    }
+
     _key_manager.reset();
 
     LvglLockGuard lock;
 
+    _loading_page.reset();
     _badge_view.reset();
 }

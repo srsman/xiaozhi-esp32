@@ -112,7 +112,7 @@ private:
 class DynamicIconLabel {
 public:
     const int show_range      = 150;
-    const int pos_y           = 138;
+    const int pos_y           = 123;
     const int transition_zone = 80;
 
     void init(const std::vector<std::string>& iconLabelTexts, int iconGap, lv_obj_t* parent)
@@ -124,7 +124,6 @@ public:
         _label = std::make_unique<Label>(parent);
         _label->setTextColor(lv_color_hex(0xFFFFFF));
         _label->setTextFont(&font_chinese_26);
-        _label->setAlign(LV_ALIGN_CENTER);
         _label->addFlag(LV_OBJ_FLAG_FLOATING);
         _label->setOpa(255);
 
@@ -140,9 +139,10 @@ public:
         _current_index = index;
         _last_index    = index;
 
-        // Update label
+        // Update label and align with explicit offset
         _label->setText(_icon_label_texts[index]);
-        _label->setPos(0, pos_y);
+        _label->align(LV_ALIGN_CENTER, 0, pos_y);
+        mclog::tagInfo("LauncherLabel", "jumpTo index={}, text={}, pos_y={}", index, _icon_label_texts[index], pos_y);
     }
 
     void update(int scrollValue)
@@ -165,9 +165,11 @@ public:
         // Check if label should be visible
         bool should_be_visible = (distance_to_icon <= show_range);
 
-        // If index changed, update label text
+        // If index changed, update label text and re-align
         if (_last_index != _current_index) {
             _label->setText(_icon_label_texts[_current_index]);
+            _label->align(LV_ALIGN_CENTER, 0, pos_y);
+            mclog::tagInfo("LauncherLabel", "switched index={}, text={}, pos_y={}", _current_index, _icon_label_texts[_current_index], pos_y);
         }
 
         // Update opacity based on distance when in transition zone

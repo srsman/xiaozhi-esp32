@@ -19,6 +19,7 @@
 #include <esp_heap_caps.h>
 #include <esp_wifi.h>
 #include <esp_log.h>
+#include <jpeg_to_image.h>
 #include <mooncake_log.h>
 
 static const std::string_view _tag = "HAL-Badge";
@@ -220,6 +221,9 @@ std::vector<std::size_t> get_available_user_slots()
     return slots;
 }
 
+static uint8_t* s_decoded_badge_pixels = nullptr;
+static lv_image_dsc_t s_decoded_badge_dsc = {};
+
 bool load_badge_slot(lv_obj_t* image, std::size_t slot)
 {
     if (image == nullptr || slot >= _max_badge_slot_count) {
@@ -230,13 +234,45 @@ bool load_badge_slot(lv_obj_t* image, std::size_t slot)
         return false;
     }
     const std::string fs_path = slot_image_path(slot, extension);
-    if (access(fs_path.c_str(), R_OK) != 0) {
+    std::vector<uint8_t> data;
+    if (!read_binary_file(fs_path, data) || data.empty()) {
+        mclog::tagError(_tag, "failed to read image file from {}", fs_path);
         return false;
     }
-    const std::string lvgl_path = std::string("A:") + fs_path;
-    lv_image_set_src(image, lvgl_path.c_str());
+
+    uint8_t* out_pixels = nullptr;
+    size_t out_len = 0;
+    size_t width = 0;
+    size_t height = 0;
+    size_t stride = 0;
+
+    esp_err_t ret = jpeg_to_image(data.data(), data.size(), &out_pixels, &out_len, &width, &height, &stride);
+    if (ret != ESP_OK || out_pixels == nullptr) {
+        mclog::tagError(_tag, "failed to decode jpeg from {}: ret={}", fs_path, ret);
+        if (out_pixels != nullptr) {
+            heap_caps_free(out_pixels);
+        }
+        return false;
+    }
+
+    if (s_decoded_badge_pixels != nullptr) {
+        heap_caps_free(s_decoded_badge_pixels);
+        s_decoded_badge_pixels = nullptr;
+    }
+    s_decoded_badge_pixels = out_pixels;
+
+    s_decoded_badge_dsc.header.magic = LV_IMAGE_HEADER_MAGIC;
+    s_decoded_badge_dsc.header.cf = LV_COLOR_FORMAT_RGB565;
+    s_decoded_badge_dsc.header.flags = 0;
+    s_decoded_badge_dsc.header.w = width;
+    s_decoded_badge_dsc.header.h = height;
+    s_decoded_badge_dsc.header.stride = stride;
+    s_decoded_badge_dsc.data_size = out_len;
+    s_decoded_badge_dsc.data = s_decoded_badge_pixels;
+
+    lv_image_set_src(image, &s_decoded_badge_dsc);
     persist_active_slot(slot);
-    mclog::tagInfo(_tag, "load badge image from {}, slot={}", fs_path, slot);
+    mclog::tagInfo(_tag, "successfully decoded and loaded badge image: {}x{}, slot={}", width, height, slot);
     return true;
 }
 
@@ -415,6 +451,7 @@ Hal::BadgeDisplayInfo Hal::getBadgeCurrentInfo()
         size_t slot = user_slots[s_current_carousel_idx];
         std::string ext = read_slot_extension(slot);
         info.isBuiltin = false;
+        info.userSlot = slot;
         info.userImagePath = std::string("A:") + slot_image_path(slot, ext);
     } else {
         info.isBuiltin = true;
@@ -437,6 +474,11 @@ Hal::BadgeDisplayInfo Hal::getBadgePreviousInfo()
     size_t total_count = user_slots.size() + _builtin_badge_count;
     s_current_carousel_idx = (s_current_carousel_idx + total_count - 1) % total_count;
     return getBadgeCurrentInfo();
+}
+
+bool Hal::loadBadgeSlot(lv_obj_t* image, size_t slot)
+{
+    return load_badge_slot(image, slot);
 }
 
 bool Hal::loadBadgeImage(lv_obj_t* image)
@@ -521,8 +563,23 @@ void Hal::startBadgeEditModeViaAp(std::function<void(std::string_view)> onLog)
         .onDelete    = delete_badge_slot,
     });
 
-    // Re-connect WiFi station after AP edit mode exits
-    esp_wifi_set_mode(WIFI_MODE_STA);
-    esp_wifi_start();
-    esp_wifi_connect();
+    // Synchronize carousel index to active slot after editing
+    auto user_slots = get_available_user_slots();
+    if (!user_slots.empty()) {
+        size_t active = read_active_slot();
+        s_current_carousel_idx = 0;
+        for (size_t i = 0; i < user_slots.size(); ++i) {
+            if (user_slots[i] == active) {
+                s_current_carousel_idx = i;
+                break;
+            }
+        }
+    } else {
+        s_current_carousel_idx = 0;
+    }
+}
+
+void Hal::requestBadgeEditExit()
+{
+    badge::config_ap::request_exit();
 }

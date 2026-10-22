@@ -14,8 +14,7 @@
 
 ## 近期更新
 
-- 项目现在要求 ESP-IDF v6.0.1 或以上版本，推荐使用 [ESP-IDF v6.1](https://github.com/espressif/esp-idf/releases/tag/v6.1)。不再支持 ESP-IDF 5.x。当前矩阵包含 171 个变体，其中 ESP32-S31 变体需要 IDF 6.1 或以上版本。
-- 新增支持 **M5Stack StopWatch (圆形触摸屏智能秒表手表)**，深度融合小智 AI 语音体系与官方 10 款原生应用生态（表盘、秒表、闹钟、音乐频谱、重力小球、水平仪、多主题极客胸牌与 Wi-Fi AP 手机无线传图等）。
+- 新增支持 **[M5Stack StopWatch](main/boards/m5stack/stopwatch/README.md) (圆形触摸屏智能秒表手表)**：深度融合小智 AI 语音体系与官方 10 款原生应用生态（经典/极客表盘、专业秒表、闹钟、音乐频谱、重力小球、水平仪、系统设置、3D 仿真实体秒表圆球物理抽屉）；创新实现胸牌手机无线 AP 传图（支持多槽位上传预览裁剪）、原生硬件 JPEG 解码与防黑屏容灾机制。
 - MQTT 和 BluFi 加密已迁移到 PSA Crypto，同时完成了 IDF 6 组件拆分及第三方依赖兼容处理。
 - 加固了音频流水线并发、MQTT/UDP 数据包校验和发布矩阵选择逻辑。
 - 使用 ESP-SR 2.4.7 时，ESP32-P4 Rev1 和 Rev3 均支持 IDF 6。

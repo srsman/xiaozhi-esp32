@@ -6,6 +6,8 @@
 #include "view.h"
 
 #include <assets/assets.h>
+#include <esp_log.h>
+#include <hal/hal.h>
 #include <cmath>
 
 using namespace view;
@@ -44,6 +46,7 @@ void EditBadgeDialog::init(lv_obj_t* parent)
     _panel->setBorderWidth(3);
     _panel->setRadius(58);
     _panel->setPaddingAll(0);
+    _panel->removeFlag(LV_OBJ_FLAG_SCROLLABLE);
     _panel->moveForeground();
 
     _label = std::make_unique<Label>(_panel->get());
@@ -59,11 +62,29 @@ void EditBadgeDialog::init(lv_obj_t* parent)
     _confirm_button->setBorderWidth(0);
     _confirm_button->setShadowWidth(0);
     _confirm_button->setBgColor(lv_color_hex(_dialog_confirm_color));
+    _confirm_button->removeFlag(LV_OBJ_FLAG_SCROLLABLE);
+    _confirm_button->addFlag(LV_OBJ_FLAG_CLICKABLE);
     _confirm_button->label().setText("Edit");
     _confirm_button->label().setTextFont(&lv_font_montserrat_24);
     _confirm_button->label().setTextColor(lv_color_hex(_confirm_text_color));
     _confirm_button->label().align(LV_ALIGN_CENTER, 0, 0);
-    _confirm_button->onClick().connect([this]() { _is_confirmed = true; });
+    _confirm_button->label().removeFlag(LV_OBJ_FLAG_CLICKABLE);
+
+    auto on_confirm = [](lv_event_t* e) {
+        lv_event_code_t code = lv_event_get_code(e);
+        ESP_LOGI("EditBadgeDialog", "Confirm clicked! code=%d", (int)code);
+        auto* self = static_cast<EditBadgeDialog*>(lv_event_get_user_data(e));
+        if (self) {
+            self->_is_confirmed = true;
+        }
+    };
+    _confirm_button->addEventCb(on_confirm, LV_EVENT_CLICKED, this);
+    _confirm_button->addEventCb(on_confirm, LV_EVENT_SHORT_CLICKED, this);
+    _confirm_button->addEventCb(on_confirm, LV_EVENT_RELEASED, this);
+    _confirm_button->onClick().connect([this]() {
+        ESP_LOGI("EditBadgeDialog", "Confirm onClick signal");
+        _is_confirmed = true;
+    });
 
     _cancel_button = std::make_unique<Button>(_panel->get());
     _cancel_button->setSize(_dialog_button_width, _dialog_button_height);
@@ -72,11 +93,29 @@ void EditBadgeDialog::init(lv_obj_t* parent)
     _cancel_button->setBorderWidth(0);
     _cancel_button->setShadowWidth(0);
     _cancel_button->setBgColor(lv_color_hex(_dialog_cancel_color));
+    _cancel_button->removeFlag(LV_OBJ_FLAG_SCROLLABLE);
+    _cancel_button->addFlag(LV_OBJ_FLAG_CLICKABLE);
     _cancel_button->label().setText("Cancel");
     _cancel_button->label().setTextFont(&lv_font_montserrat_24);
     _cancel_button->label().setTextColor(lv_color_hex(_label_color));
     _cancel_button->label().align(LV_ALIGN_CENTER, 0, 0);
-    _cancel_button->onClick().connect([this]() { _is_cancelled = true; });
+    _cancel_button->label().removeFlag(LV_OBJ_FLAG_CLICKABLE);
+
+    auto on_cancel = [](lv_event_t* e) {
+        lv_event_code_t code = lv_event_get_code(e);
+        ESP_LOGI("EditBadgeDialog", "Cancel clicked! code=%d", (int)code);
+        auto* self = static_cast<EditBadgeDialog*>(lv_event_get_user_data(e));
+        if (self) {
+            self->_is_cancelled = true;
+        }
+    };
+    _cancel_button->addEventCb(on_cancel, LV_EVENT_CLICKED, this);
+    _cancel_button->addEventCb(on_cancel, LV_EVENT_SHORT_CLICKED, this);
+    _cancel_button->addEventCb(on_cancel, LV_EVENT_RELEASED, this);
+    _cancel_button->onClick().connect([this]() {
+        ESP_LOGI("EditBadgeDialog", "Cancel onClick signal");
+        _is_cancelled = true;
+    });
 }
 
 void BadgeView::init(lv_obj_t* parent)
@@ -108,6 +147,13 @@ void BadgeView::init(lv_obj_t* parent)
     _image = std::make_unique<Image>(_panel->get());
     _image->align(LV_ALIGN_CENTER, 0, 0);
     _image->setHidden(true);
+    _image->addFlag(LV_OBJ_FLAG_CLICKABLE);
+    _image->addFlag(LV_OBJ_FLAG_EVENT_BUBBLE);
+    _image->addEventCb(handleBadgeEvent, LV_EVENT_PRESSED, this);
+    _image->addEventCb(handleBadgeEvent, LV_EVENT_RELEASED, this);
+    _image->addEventCb(handleBadgeEvent, LV_EVENT_GESTURE, this);
+    _image->addEventCb(handleBadgeEvent, LV_EVENT_CLICKED, this);
+    _image->addEventCb(handleBadgeEvent, LV_EVENT_LONG_PRESSED, this);
 
     // Native Geek Badge Card Container (380x380 round-corner card)
     _geek_card = std::make_unique<Container>(_panel->get());
@@ -120,6 +166,12 @@ void BadgeView::init(lv_obj_t* parent)
     _geek_card->setBgOpa(LV_OPA_COVER);
     _geek_card->setPaddingAll(12);
     _geek_card->removeFlag(LV_OBJ_FLAG_SCROLLABLE);
+    _geek_card->addFlag(LV_OBJ_FLAG_EVENT_BUBBLE);
+    _geek_card->addEventCb(handleBadgeEvent, LV_EVENT_PRESSED, this);
+    _geek_card->addEventCb(handleBadgeEvent, LV_EVENT_RELEASED, this);
+    _geek_card->addEventCb(handleBadgeEvent, LV_EVENT_GESTURE, this);
+    _geek_card->addEventCb(handleBadgeEvent, LV_EVENT_CLICKED, this);
+    _geek_card->addEventCb(handleBadgeEvent, LV_EVENT_LONG_PRESSED, this);
 
     // Tag at top of card
     _geek_chip_tag = std::make_unique<Label>(_geek_card->get());
@@ -269,14 +321,23 @@ void BadgeView::showGeekBadge(size_t index, size_t totalCount, size_t currentPos
     updatePageDots(currentPos, totalCount);
 }
 
-void BadgeView::showUserImage(const char* lvgl_path, size_t totalCount, size_t currentPos)
+void BadgeView::showUserImage(size_t slot, size_t totalCount, size_t currentPos)
 {
-    if (_geek_card) {
-        _geek_card->setHidden(true);
-    }
-    if (_image) {
-        _image->setHidden(false);
-        lv_image_set_src(_image->get(), lvgl_path);
+    bool ok = GetHAL().loadBadgeSlot(imageObject(), slot);
+    if (ok) {
+        if (_geek_card) {
+            _geek_card->setHidden(true);
+        }
+        if (_image) {
+            _image->setHidden(false);
+        }
+    } else {
+        ESP_LOGW("BadgeView", "Failed to load badge slot %u, gracefully falling back to geek badge", (unsigned)slot);
+        showGeekBadge(0, totalCount, currentPos);
+        if (_geek_status) {
+            _geek_status->setText("● BADGE LOAD FAILED");
+            _geek_status->setTextColor(lv_color_hex(0xFF5555));
+        }
     }
     updatePageDots(currentPos, totalCount);
 }
@@ -295,12 +356,14 @@ void BadgeView::update()
     }
 
     if (_edit_dialog->isConfirmed()) {
+        ESP_LOGI("BadgeView", "Edit dialog confirmed -> edit_requested = true");
         _edit_requested = true;
         _edit_dialog.reset();
         return;
     }
 
     if (_edit_dialog->isCancelled()) {
+        ESP_LOGI("BadgeView", "Edit dialog cancelled -> reset dialog");
         _edit_dialog.reset();
     }
 }
@@ -328,9 +391,12 @@ bool BadgeView::consumePrevRequested()
 
 void BadgeView::showEditDialog()
 {
-    _edit_dialog.reset();
+    if (_edit_dialog != nullptr) {
+        return;
+    }
+    ESP_LOGI("BadgeView", "Opening edit dialog...");
     _edit_dialog = std::make_unique<EditBadgeDialog>();
-    _edit_dialog->init(lv_screen_active());
+    _edit_dialog->init(_panel ? _panel->get() : lv_screen_active());
 }
 
 void BadgeView::handleBadgeEvent(lv_event_t* e)
@@ -340,9 +406,14 @@ void BadgeView::handleBadgeEvent(lv_event_t* e)
         return;
     }
 
+    if (self->_edit_dialog != nullptr) {
+        return;
+    }
+
     lv_event_code_t code = lv_event_get_code(e);
 
     if (code == LV_EVENT_LONG_PRESSED) {
+        self->_is_pressing = false;
         self->showEditDialog();
         return;
     }

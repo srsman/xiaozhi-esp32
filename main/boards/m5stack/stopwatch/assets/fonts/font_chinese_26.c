@@ -433,8 +433,8 @@ LV_FONT_DECLARE(MontserratSemiBold26);
 const lv_font_t font_chinese_26 = {
     .get_glyph_dsc = lv_font_get_glyph_dsc_fmt_txt,
     .get_glyph_bitmap = lv_font_get_bitmap_fmt_txt,
-    .line_height = 27,
-    .base_line = 5,
+    .line_height = 28,
+    .base_line = 9,
     .subpx = LV_FONT_SUBPX_NONE,
     .underline_position = -3,
     .underline_thickness = 1,

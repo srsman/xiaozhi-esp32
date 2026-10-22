@@ -313,6 +313,7 @@ public:
     struct BadgeDisplayInfo {
         bool isBuiltin = true;
         size_t builtinIndex = 0;
+        size_t userSlot = 0;
         std::string userImagePath;
         size_t currentPos = 0;
         size_t totalCount = 3;
@@ -320,10 +321,12 @@ public:
     BadgeDisplayInfo getBadgeCurrentInfo();
     BadgeDisplayInfo getBadgeNextInfo();
     BadgeDisplayInfo getBadgePreviousInfo();
+    bool loadBadgeSlot(lv_obj_t* image, size_t slot);
     bool loadBadgeImage(lv_obj_t* image);
     bool loadNextBadgeImage(lv_obj_t* image);
     bool loadPreviousBadgeImage(lv_obj_t* image);
     void startBadgeEditModeViaAp(std::function<void(std::string_view)> onLog);
+    void requestBadgeEditExit();
 
     /* ---------------------------------- Guide --------------------------------- */
     bool shouldShowGuide();

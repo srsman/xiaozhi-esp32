@@ -52,5 +52,6 @@ struct Callbacks {
 };
 
 bool run(const std::function<void(std::string_view)>& onLog, const Callbacks& callbacks);
+void request_exit();
 
 }  // namespace badge::config_ap
