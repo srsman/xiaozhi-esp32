@@ -65,18 +65,6 @@ bool file_exists(const std::string& path)
     return (stat(path.c_str(), &st) == 0);
 }
 
-bool write_binary_file(const std::string& path, const std::vector<uint8_t>& data)
-{
-    FILE* file = fopen(path.c_str(), "wb");
-    if (file == nullptr) {
-        ESP_LOGE(TAG, "failed to open %s for write: errno=%d", path.c_str(), errno);
-        return false;
-    }
-    const std::size_t written = fwrite(data.data(), 1, data.size(), file);
-    fclose(file);
-    return written == data.size();
-}
-
 bool read_binary_file(const std::string& path, std::vector<uint8_t>& data)
 {
     FILE* file = fopen(path.c_str(), "rb");
@@ -184,7 +172,7 @@ public:
         esp_wifi_start();
 
         _dns_server = std::make_unique<DnsServer>();
-        _dns_server->Start("192.168.4.1");
+        _dns_server->Start(ip_info.gw);
 
         httpd_config_t config   = HTTPD_DEFAULT_CONFIG();
         config.stack_size       = 8192;
