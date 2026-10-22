@@ -65,8 +65,9 @@ void WatchPageManager::Init(lv_obj_t* muse_screen,
     GetMooncake().installApp(std::make_unique<AppSetup>());
     GetMooncake().installApp(std::make_unique<AppImu>());
     GetMooncake().installApp(std::make_unique<AppFluidBox>());
+    GetMooncake().installApp(std::make_unique<AppGuruguru>());
 
-    // 关键：最后安装并启动 Launcher 桌面，以便其 getAppProps() 能够完整获取全部已安装的 10 个应用！
+    // 关键：最后安装并启动 Launcher 桌面，以便其 getAppProps() 能够完整获取全部已安装的 11 个应用！
     launcher_app_id_ = GetMooncake().installApp(std::make_unique<AppLauncher>());
 
     ESP_LOGI(TAG, "All apps installed! Launcher ID: %d, WatchFace ID: %d, XiaoZhi ID: %d",
