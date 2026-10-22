@@ -213,7 +213,7 @@ static std::string get_chinese_app_name(const std::string& name) {
     if (name == "Settings" || name == "Setup" || name == "设置") return "设置";
     if (name == "IMU" || name == "水平仪") return "水平仪";
     if (name == "FluidBox" || name == "流体小球") return "流体小球";
-    if (name == "Guruguru" || name == "咕噜咕噜") return "咕噜咕噜";
+    if (name == "Guruguru" || name == "咕噜咕噜") return "Guruguru";
     return name;
 }
 
