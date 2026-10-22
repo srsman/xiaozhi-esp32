@@ -46,14 +46,13 @@ void AppGuruguru::onRunning()
         return;
     }
 
+    // Read IMU tilt outside LVGL lock
+    GetHAL().updateImuData();
+    const auto& imu = GetHAL().getImuData();
+
     LvglLockGuard lock;
-
     if (_view) {
-        // Read IMU tilt to guide eye movement if enabled
-        GetHAL().updateImuData();
-        const auto& imu = GetHAL().getImuData();
         _view->updateImuTilt(imu.accelX, imu.accelY);
-
         _view->update();
     }
 }
